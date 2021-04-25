@@ -13,9 +13,9 @@ def process_args(arguments):
                         help="GPU ID (negative value indicates CPU)")
     parser.add_argument("--trial", "-t", type=int, default=5,
                         help="Number of experiments")
-    parser.add_argument("--method", "-m", type=str, default="DRPU", choices=["uPU", "nnPU", "DRPU"],
+    parser.add_argument("--method", "-m", type=str, default="nnDRPU", choices=["uPU", "nnPU", "DRPU", "nnDRPU"],
                         help="Learning algorithm")
-    parser.add_argument("--dataset", "-d", type=str, default="mnist", choices=["mnist", "fmnist", "cifar10"],
+    parser.add_argument("--dataset", "-d", type=str, default="mnist", choices=["gauss", "gauss_mix", "mnist", "fmnist", "cifar10"],
                         help="Dataset name")
     parser.add_argument("--loss", "-l", type=str, default="LSIF", choices=["sigmoid", "logistic", "savage", "LSIF"],
                         help="Loss function")
@@ -40,8 +40,18 @@ def main(args):
     loss_name = args.loss
     alpha = args.alpha
     path = args.path
+    synthetic_prior = None
     # presets
-    if dataset_name == "mnist":
+    if dataset_name in ["gauss", "gauss_mix"]:
+        pos_labels = []
+        priors = [0.4, 0.6]
+        train_size = (200, 1000)
+        validation_size = (100, 500)
+        max_epochs = 300
+        batch_size = 100
+        stepsize = 1e-3
+        synthetic_prior = 0.4
+    elif dataset_name == "mnist":
         pos_labels = [0, 2, 4, 6, 8]
         priors = [0.5, 0.3, 0.7]
         train_size = (2500, 50000)
@@ -71,7 +81,8 @@ def main(args):
         max_epochs=max_epochs,
         batch_size=batch_size,
         stepsize=stepsize,
-        path=path
+        path=path,
+        synthetic_prior=synthetic_prior
     )
 
 

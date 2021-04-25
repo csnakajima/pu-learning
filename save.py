@@ -3,6 +3,50 @@ import os
 import matplotlib.pyplot as plt
 
 
+class Results(object):
+    def __init__(self, keys):
+        self.map = dict()
+        for k in keys:
+            self.map[k] = []
+        
+    def append(self, key, value):
+        self.map[key].append(value)
+
+    def get(self, key, index=-1):
+        return self.map[key][index]
+
+    def mean(self, key):
+        return np.array(self.map[key]).mean()
+
+    def stdev(self, key):
+        return np.array(self.map[key]).std()
+
+    def save(self, key, path):
+        np.savetxt(path + "/{}.csv".format(key), np.array(self.map[key]), encoding="utf-8")
+
+    def saveall(self, path):
+        for key in self.map.keys():
+            if len(self.map[key]) > 0:
+                self.save(key, path)
+
+    def plot(self, keys, path, xlabel='Epoch', ylabel='Loss', marker=None):
+        # plt.style.use(['seaborn-colorblind'])
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        ax.grid()
+        for key in keys:
+            ax.plot(np.arange(1, 1 + len(self.map[key]), 1), np.array(self.map[key]), marker=marker, label=key)
+        ax.legend(loc="best")
+        fig.savefig(path)
+        plt.clf()
+        plt.close()
+
+    def plotall(self, path, xlabel="Epoch", ylabel="Loss", marker=None):
+        self.plot(self.map.keys(), path, xlabel, ylabel, marker)
+
+
 def create_directory(path):
     file_idx = 1
     try:
@@ -22,32 +66,6 @@ def create_directory(path):
         assert file_idx < 10
     print("created directory: {}".format(path))
     return path
-
-
-def save_result(results, path):
-    for key, values in results.items():
-        np.savetxt(path + "/{}.csv".format(key), values, encoding="utf-8")
-
-
-def save_history(history, path):
-    for key, values in history.items():
-        np.savetxt(path + "/{}_history.csv".format(key), values, encoding="utf-8")
-    plot_history(history, path + "/plot.png")
-
-
-def plot_history(history, path, xlabel='Epoch', ylabel='Loss', marker=None):
-    # plt.style.use(['seaborn-colorblind'])
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    ax.grid()
-    for key, values in history.items():
-        ax.plot(np.arange(1, 1 + len(values), 1), np.array(values), marker=marker, label=key)
-    ax.legend(loc="best")
-    fig.savefig(path)
-    plt.clf()
-    plt.close()
 
 
 def plot_roc_curve(fpr, tpr, path="results/roc_curve.png"):

@@ -4,30 +4,20 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class LinearClassifier(nn.Module):
-    def __init__(self, dim):
-        super(LinearClassifier, self).__init__()
-        self.l = nn.Linear(dim, 1)
+class UnivariateClassifier(nn.Module):
+    def __init__(self, activate_output=False, dim=1):
+        super(UnivariateClassifier, self).__init__()
+        self.l1 = nn.Linear(dim, 1, bias=True)
+        self.l2 = nn.Linear(1, 1, bias=False)
+        # self.l2.weight.data.fill_(0)
+        self.af = nn.Sigmoid()
+        self.activate_output = activate_output
 
     def forward(self, x):
-        h = self.l(x)
-        return h
-
-
-class ThreeLayeredNeuralNetwork(nn.Module):
-    def __init__(self, dim):
-        super(ThreeLayeredNeuralNetwork, self).__init__()
-        self.l1 = nn.Linear(dim, 100)
-        self.b1 = nn.BatchNorm1d(100)
-        self.l2 = nn.Linear(100, 1)
-        self.af = nn.ReLU()
-
-    def forward(self, x):
-        h = self.l1(x)
-        h = self.b1(h)
-        h = self.af(h)
-        h = self.l2(h)
-        return h
+        x = self.l1(x)
+        if self.activate_output:
+            x = self.l2(self.af(x))
+        return x
 
 
 class NeuralNetwork(nn.Module):
@@ -107,10 +97,10 @@ class CNN_CIFAR(nn.Module):
 
 def select_model(model_name, activate_output=False):
     models = {
-        "Linear": LinearClassifier,
-        "3L": ThreeLayeredNeuralNetwork,
-        "NN": NeuralNetwork,
-        "CNN": CNN_MNIST,
-        "CNN2": CNN_CIFAR
+        "gauss": UnivariateClassifier,
+        "gauss_mix": UnivariateClassifier,
+        "mnist": CNN_MNIST,
+        "fmnist": CNN_MNIST,
+        "cifar": CNN_CIFAR
     }
     return models[model_name]
