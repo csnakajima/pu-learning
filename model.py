@@ -4,41 +4,21 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class UnivariateClassifier(nn.Module):
+class UnivariateNetwork(nn.Module):
     def __init__(self, activate_output=False, dim=1):
-        super(UnivariateClassifier, self).__init__()
-        self.l1 = nn.Linear(dim, 1, bias=True)
-        self.l2 = nn.Linear(1, 1, bias=False)
-        # self.l2.weight.data.fill_(0)
-        self.af = nn.Sigmoid()
+        super(UnivariateNetwork, self).__init__()
+        self.l1 = nn.Linear(dim, 4, bias=True)
+        self.l2 = nn.Linear(4, 1, bias=True)
+        self.af1 = nn.Sigmoid()
+        self.af2 = nn.Softplus()
         self.activate_output = activate_output
 
     def forward(self, x):
-        x = self.l1(x)
+        x = self.af1(self.l1(x))
+        x = self.l2(x)
         if self.activate_output:
-            x = self.l2(self.af(x))
+            x = self.af2(x)
         return x
-
-
-class NeuralNetwork(nn.Module):
-    def __init__(self, dim):
-        super(NeuralNetwork, self).__init__()
-        self.l1 = nn.Linear(dim, 300, bias=False)
-        self.b1 = nn.BatchNorm1d(300)
-        self.l2 = nn.Linear(300, 300, bias=False)
-        self.b2 = nn.BatchNorm1d(300)
-        self.l3 = nn.Linear(300, 1)
-        self.af = nn.ReLU()
-
-    def forward(self, x):
-        h = self.l1(x)
-        h = self.b1(h)
-        h = self.af(h)
-        h = self.l2(h)
-        h = self.b2(h)
-        h = self.af(h)
-        h = self.l3(h)
-        return h
 
 
 class CNN_MNIST(nn.Module):
@@ -97,8 +77,8 @@ class CNN_CIFAR(nn.Module):
 
 def select_model(model_name, activate_output=False):
     models = {
-        "gauss": UnivariateClassifier,
-        "gauss_mix": UnivariateClassifier,
+        "gauss": UnivariateNetwork,
+        "gauss_mix": UnivariateNetwork,
         "mnist": CNN_MNIST,
         "fmnist": CNN_MNIST,
         "cifar": CNN_CIFAR

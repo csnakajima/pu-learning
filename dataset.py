@@ -66,7 +66,7 @@ class SyntheticDataset(torch.utils.data.Dataset):
         self.prior = prior
         self.transform = transform
         self.target_transform = target_transform
-        self.rng = np.random.default_rng()
+        # self.rng = np.random.default_rng()
         self.generate(num)
 
     def __len__(self):
@@ -88,12 +88,12 @@ class SyntheticDataset(torch.utils.data.Dataset):
     def base1(self, num=1):
         mean = 1
         var = 1
-        return self.rng.normal(mean, var, (num, 1))
+        return np.random.normal(mean, var, (num, 1))
 
     def base2(self, num=1):
         mean = -1
         var = 1
-        return self.rng.normal(mean, var, (num, 1))
+        return np.random.normal(mean, var, (num, 1))
 
 
 class Gaussian(SyntheticDataset):

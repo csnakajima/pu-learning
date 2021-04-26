@@ -1,8 +1,9 @@
 import sys
 import argparse
+import numpy as np
+import torch
 
-from train import run
-
+from train import run, SYNTHETIC, UNBIASED
 
 def process_args(arguments):
     parser = argparse.ArgumentParser(
@@ -23,11 +24,18 @@ def process_args(arguments):
                         help="Parameter for the risk estimator")
     parser.add_argument("--path", "-p", type=str, default="results",
                         help="Directory to output the results")
+    parser.add_argument("--seed", "-s", type=int, default=None,
+                        help="Random seed")
     args = parser.parse_args(arguments)
-    if args.method in ["uPU", "nnPU"]:
+    if args.method in UNBIASED:
         assert args.loss not in ["LSIF"]
     else:
         assert args.loss in ["LSIF"]
+    if args.seed is not None:
+        np.random.seed(args.seed)
+        torch.manual_seed(args.seed)
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
     return args
 
 
@@ -41,14 +49,15 @@ def main(args):
     alpha = args.alpha
     path = args.path
     synthetic_prior = None
+    seed = args.seed
     # presets
-    if dataset_name in ["gauss", "gauss_mix"]:
+    if dataset_name in SYNTHETIC:
         pos_labels = []
         priors = [0.4, 0.6]
         train_size = (200, 1000)
         validation_size = (100, 500)
-        max_epochs = 300
-        batch_size = 100
+        max_epochs = 200
+        batch_size = 200
         stepsize = 1e-3
         synthetic_prior = 0.4
     elif dataset_name == "mnist":
@@ -82,7 +91,8 @@ def main(args):
         batch_size=batch_size,
         stepsize=stepsize,
         path=path,
-        synthetic_prior=synthetic_prior
+        synthetic_prior=synthetic_prior,
+        seed=seed
     )
 
 

@@ -13,7 +13,8 @@ class Results(object):
         self.map[key].append(value)
 
     def get(self, key, index=-1):
-        return self.map[key][index]
+        return self.map.get(key, None)
+        # return self.map[key][index]
 
     def mean(self, key):
         return np.array(self.map[key]).mean()

@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import statistics as stats
 import os
 
 from torch.nn import functional as F
@@ -12,6 +11,8 @@ from metric import *
 from save import *
 from sklearn.metrics import roc_auc_score, roc_curve
 
+SYNTHETIC = ["gauss", "gauss_mix"]
+UNBIASED = ["uPU", "nnPU"]
 
 def to_ndarray(tensor):
     return tensor.to('cpu').detach().numpy().copy()
@@ -81,7 +82,7 @@ def train(device, method, dataset_name, datasets, loss_name, alpha, max_epochs, 
     valloader_U = torch.utils.data.DataLoader(valset_U, batch_size=min(len(valset_U), max_batch_size), shuffle=False, drop_last=False, num_workers=1)
 
     # model setup ----------------
-    activate_output = False if method in ["uPU", "nnPU"] else True
+    activate_output = False if method in UNBIASED else True
     model = select_model(dataset_name)(activate_output=activate_output).to(device)
     if method == "uPU":
         criterion = PURiskEstimator(prior=alpha, loss=select_loss(loss_name))
@@ -130,7 +131,7 @@ def train(device, method, dataset_name, datasets, loss_name, alpha, max_epochs, 
                 validation_loss.append(criterion_val.value())
             results.append("validation_loss", np.array(validation_loss).mean())
 
-    if method in ["uPU", "nnPU"]:
+    if method in UNBIASED:
         train_prior, preds_P = None, None
     else:
         # estimate class prior
@@ -188,7 +189,7 @@ def find_boundary(device, model, thresh):
     return x[np.abs(y - thresh).argmin()]
     
 
-def run(device_num, trial, method, dataset_name, loss_name, alpha, pos_labels, priors, train_size, validation_size, max_epochs, batch_size, stepsize, path, synthetic_prior):
+def run(device_num, trial, method, dataset_name, loss_name, alpha, pos_labels, priors, train_size, validation_size, max_epochs, batch_size, stepsize, path, synthetic_prior, seed):
     device = torch.device(device_num) if device_num >= 0 and torch.cuda.is_available() else 'cpu'
     print("Device : {}".format(device))
     num_test = len(priors)
@@ -199,7 +200,7 @@ def run(device_num, trial, method, dataset_name, loss_name, alpha, pos_labels, p
     for trial_idx in range(trial):
         print("Trial {} started.".format(trial_idx + 1))
         # loading training dataset
-        if dataset_name in ["gauss", "gauss_mix"]:
+        if dataset_name in SYNTHETIC:
             train_P, train_U, val_P, val_U = generate_trainset(dataset_name, train_size, validation_size, prior=synthetic_prior)
         else:
             train_P, train_U, val_P, val_U = load_trainset(dataset_name, pos_labels, train_size, validation_size)
@@ -223,8 +224,8 @@ def run(device_num, trial, method, dataset_name, loss_name, alpha, pos_labels, p
         train_results.append("train_loss", history.get("train_loss"))
         train_results.append("validation_loss", history.get("validation_loss"))
         # loading test dataset
-        if dataset_name in ["gauss", "gauss_mix"]:
-            testsets = [generate_testset(dataset_name, test_size=1000, prior=priors[test_idx]) for test_idx in range(num_test)]
+        if dataset_name in SYNTHETIC:
+            testsets = [generate_testset(dataset_name, test_size=500, prior=priors[test_idx]) for test_idx in range(num_test)]
         else:
             testsets = [load_testset(dataset_name, pos_labels, prior=priors[test_idx]) for test_idx in range(num_test)]
         # test
@@ -240,7 +241,7 @@ def run(device_num, trial, method, dataset_name, loss_name, alpha, pos_labels, p
             test_results[test_idx].append("auc", auc)
             test_results[test_idx].append("prior", pri)
             test_results[test_idx].append("thresh", ths)
-            if dataset_name in ["gauss", "gauss_mix"]:
+            if dataset_name in SYNTHETIC:
                 bnd = find_boundary(device, model, ths)
                 test_results[test_idx].append("boundary", bnd)
     
@@ -262,6 +263,18 @@ def run(device_num, trial, method, dataset_name, loss_name, alpha, pos_labels, p
         for test_idx in range(num_test):
             print("Test {} : prior = {}".format(test_idx + 1, priors[test_idx]), file=f)
             print("Accuracy : {:.4f} +/- {:.4f}".format(test_results[test_idx].mean("accuracy"), test_results[test_idx].stdev("accuracy")), file=f)
-            print("AUC : {:.4f} +/- {:.4f}\n".format(test_results[test_idx].mean("auc"), test_results[test_idx].stdev("auc")), file=f)
+            print("AUC : {:.4f} +/- {:.4f}".format(test_results[test_idx].mean("auc"), test_results[test_idx].stdev("auc")), file=f)
+            print("Prior : {:.6f} +/- {:.6f}".format(test_results[test_idx].mean("prior"), test_results[test_idx].stdev("prior")), file=f)
+            print("Thresh : {:.6f} +/- {:.6f}".format(test_results[test_idx].mean("thresh"), test_results[test_idx].stdev("thresh")), file=f)
+            if test_results[test_idx].get("boundary") is not None:
+                print("Boundary : {:.6f} +/- {:.6f}".format(test_results[test_idx].mean("boundary"), test_results[test_idx].stdev("boundary")), file=f)
+            print("", file=f)
+        print("--Parameters--", file=f)
+        print("train_size = {}".format(train_size), file=f)
+        print("validation_size = {}".format(validation_size), file=f)
+        print("max_epochs = {}".format(max_epochs), file=f)
+        print("batch_size = {}".format(batch_size), file=f)
+        print("stepsize = {}".format(stepsize), file=f)
+        print("random seed = {}".format(seed), file=f)
 
     return train_results.mean("validation_loss")
