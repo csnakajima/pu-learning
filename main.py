@@ -14,9 +14,9 @@ def process_args(arguments):
                         help="GPU ID (negative value indicates CPU)")
     parser.add_argument("--trial", "-t", type=int, default=5,
                         help="Number of experiments")
-    parser.add_argument("--method", "-m", type=str, default="nnDRPU", choices=["uPU", "nnPU", "DRPU", "nnDRPU"],
+    parser.add_argument("--method", "-m", type=str, default="nnDRPU", choices=["uPU", "nnPU", "DRPU"],
                         help="Learning algorithm")
-    parser.add_argument("--dataset", "-d", type=str, default="mnist", choices=["gauss", "gauss_mix", "mnist", "fmnist", "cifar10"],
+    parser.add_argument("--dataset", "-d", type=str, default="mnist", choices=["gauss", "gauss_mix", "mnist", "fmnist", "cifar"],
                         help="Dataset name")
     parser.add_argument("--loss", "-l", type=str, default="LSIF", choices=["sigmoid", "logistic", "savage", "LSIF"],
                         help="Loss function")
@@ -50,6 +50,7 @@ def main(args):
     path = args.path
     synthetic_prior = None
     seed = args.seed
+    priors = [0.2, 0.4, 0.6, 0.8]
     # presets
     if dataset_name in SYNTHETIC:
         pos_labels = []
@@ -59,23 +60,22 @@ def main(args):
         max_epochs = 200
         batch_size = 200
         stepsize = 1e-3
-        synthetic_prior = 0.4
-    elif dataset_name == "mnist":
-        pos_labels = [0, 2, 4, 6, 8]
-        priors = [0.5, 0.3, 0.7]
+        synthetic_prior = 0.4 if dataset_name == "gauss" else 0.6
+    elif dataset_name in ["mnist", "fmnist"]:
+        pos_labels = [0, 1] if dataset_name == "mnist" else [2, 3, 4, 5, 6, 9]
         train_size = (2500, 50000)
         validation_size = (500, 10000)
-        max_epochs = 150
+        max_epochs = 100
         batch_size = 500
         stepsize = 1e-5
-    elif dataset_name == "fmnist":
-        pos_labels = [0, 1, 7, 8]
-        priors = [0.4, 0.2, 0.6]
-        train_size = (2500, 50000)
-        validation_size = (500, 10000)
-        max_epochs = 150
+    elif dataset_name == "cifar":
+        pos_labels = [0, 1, 8, 9]
+        train_size = (2500, 45000)
+        validation_size = (500, 5000)
+        max_epochs = 100
         batch_size = 500
         stepsize = 1e-5
+
     
     run(device_num=device_num,
         trial=trial,

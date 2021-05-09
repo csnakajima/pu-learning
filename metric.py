@@ -72,14 +72,14 @@ class NonNegativeBregmanDivergence(BregmanDivergence):
         self.prior = prior
         self.thresh = thresh
         self.weight = weight
-        self.f_res = lambda x: self.df(x) - self.prior * (x * self.df(x) - self.f(x))
-        self.loss = lambda x: x * self.df(x) - self.f(x) + 1/2
+        self.f_dual = lambda x: x * self.df(x) -self.f(x)
+        self.f_nn = lambda x: self.f_dual(x) - self.f_dual(0 * x)
 
     def __call__(self, y_p, y_u):
-        E_pp = torch.mean(-self.f_res(y_p))
-        E_pn = torch.mean(self.loss(y_p))
-        E_u = torch.mean(self.loss(y_u))
-        self.L = E_pp + max(0, E_u - self.prior * E_pn)
+        E_pp = torch.mean(-self.df(y_p) + self.prior * self.f_nn(y_p))
+        E_pn = torch.mean(self.f_nn(y_p))
+        E_u = torch.mean(self.f_nn(y_u))
+        self.L = E_pp + max(0, E_u - self.prior * E_pn) + self.f_dual(0 * E_u)
         return self.L if E_u - self.prior * E_pn >= self.thresh else self.weight * (self.prior * E_pn - E_u)
 
 

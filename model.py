@@ -4,9 +4,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class UnivariateNetwork(nn.Module):
+class UnivariateNet(nn.Module):
     def __init__(self, activate_output=False, dim=1):
-        super(UnivariateNetwork, self).__init__()
+        super(UnivariateNet, self).__init__()
         self.l1 = nn.Linear(dim, 4, bias=True)
         self.l2 = nn.Linear(4, 1, bias=True)
         self.af1 = nn.Sigmoid()
@@ -21,18 +21,41 @@ class UnivariateNetwork(nn.Module):
         return x
 
 
-class CNN_MNIST(nn.Module):
+class MultiLayerPerceptron(nn.Module):
+    def __init__(self, dim=784, activate_output=False):
+        super(MultiLayerPerceptron, self).__init__()
+        self.l1 = nn.Linear(dim, 300, bias=False)
+        self.l2 = nn.Linear(300, 300, bias=False)
+        self.l3 = nn.Linear(300, 300, bias=False)
+        self.l4 = nn.Linear(300, 300, bias=False)
+        self.l5 = nn.Linear(300, 1, bias=False)
+        self.b = nn.BatchNorm1d(300)
+        self.af = nn.ReLU()
+        self.activate_output = activate_output
+
+    def forward(self, x):
+        x = self.af(self.b(self.l1(x)))
+        x = self.af(self.b(self.l2(x)))
+        x = self.af(self.b(self.l3(x)))
+        x = self.af(self.b(self.l4(x)))
+        x = self.l5(x)
+        if self.activate_output:
+            x = self.af(x)
+        return x
+
+
+class LeNet(nn.Module):
     def __init__(self, activate_output=False):
-        super(CNN_MNIST, self).__init__()
+        super(LeNet, self).__init__()
         self.conv1 = nn.Conv2d(in_channels=1, out_channels=6, kernel_size=5, padding=2)
         self.conv2 = nn.Conv2d(in_channels=6, out_channels=16, kernel_size=5)
         self.conv3 = nn.Conv2d(in_channels=16, out_channels=120, kernel_size=5)
         self.b1 = nn.BatchNorm2d(6)
         self.b2 = nn.BatchNorm2d(16)
         self.mp = nn.MaxPool2d(2)
-        self.fc1 = nn.Linear(120 * 1 * 1, 100)
-        self.b3 = nn.BatchNorm1d(100)
-        self.fc2 = nn.Linear(100, 1)
+        self.fc1 = nn.Linear(120 * 1 * 1, 84)
+        self.b3 = nn.BatchNorm1d(84)
+        self.fc2 = nn.Linear(84, 1)
         self.af = nn.ReLU()
         self.activate_output = activate_output
 
@@ -49,24 +72,45 @@ class CNN_MNIST(nn.Module):
         return x
 
 
-class CNN_CIFAR(nn.Module):
+class AllConvNet(nn.Module):
     def __init__(self, activate_output=False):
-        super(CNN_CIFAR, self).__init__()
-        self.conv1 = nn.Conv2d(3, 96, 3)
-        self.conv2 = nn.Conv2d(96, 96, 3, stride=2)
-        self.conv3 = nn.Conv2d(96, 192, 1)
-        self.conv4 = nn.Conv2d(192, 10, 1)
-        self.fc1 = nn.Linear(1960, 1000)
+        super(AllConvNet, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=96, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(in_channels=96, out_channels=96, kernel_size=3, padding=1)
+        self.conv3 = nn.Conv2d(in_channels=96, out_channels=96, kernel_size=3, stride=2, padding=1)
+        self.conv4 = nn.Conv2d(in_channels=96, out_channels=192, kernel_size=3, padding=1)
+        self.conv5 = nn.Conv2d(in_channels=192, out_channels=192, kernel_size=3, padding=1)
+        self.conv6 = nn.Conv2d(in_channels=192, out_channels=192, kernel_size=3, stride=2, padding=1)
+        self.conv7 = nn.Conv2d(in_channels=192, out_channels=192, kernel_size=3, padding=1)
+        self.conv8 = nn.Conv2d(in_channels=192, out_channels=192, kernel_size=1, padding=1)
+        self.conv9 = nn.Conv2d(in_channels=192, out_channels=10, kernel_size=1, padding=1)
+        self.b1 = nn.BatchNorm2d(96)
+        self.b2 = nn.BatchNorm2d(96)
+        self.b3 = nn.BatchNorm2d(96)
+        self.b4 = nn.BatchNorm2d(192)
+        self.b5 = nn.BatchNorm2d(192)
+        self.b6 = nn.BatchNorm2d(192)
+        self.b7 = nn.BatchNorm2d(192)
+        self.b8 = nn.BatchNorm2d(192)
+        self.b9 = nn.BatchNorm2d(10)
+        self.fc1 = nn.Linear(10 * 12 * 12, 1000)
         self.fc2 = nn.Linear(1000, 1000)
-        self.fc3 = nn.Linear(1000, 2)
-        self.af = F.relu
+        self.fc3 = nn.Linear(1000, 1)
+        self.af = nn.ReLU()
+        self.activate_output = activate_output
 
     def forward(self, x):
-        x = self.af(self.conv1(x))
-        x = self.af(self.conv2(x))
-        x = self.af(self.conv3(x))
-        x = self.af(self.conv4(x))
-        x = x.view(-1, 1960)
+        in_size = x.size(0)
+        x = self.af(self.b1(self.conv1(x)))
+        x = self.af(self.b2(self.conv2(x)))
+        x = self.af(self.b3(self.conv3(x)))
+        x = self.af(self.b4(self.conv4(x)))
+        x = self.af(self.b5(self.conv5(x)))
+        x = self.af(self.b6(self.conv6(x)))
+        x = self.af(self.b7(self.conv7(x)))
+        x = self.af(self.b8(self.conv8(x)))
+        x = self.af(self.b9(self.conv9(x)))
+        x = x.view(in_size, -1)
         x = self.af(self.fc1(x))
         x = self.af(self.fc2(x))
         x = self.fc3(x)
@@ -77,10 +121,10 @@ class CNN_CIFAR(nn.Module):
 
 def select_model(model_name, activate_output=False):
     models = {
-        "gauss": UnivariateNetwork,
-        "gauss_mix": UnivariateNetwork,
-        "mnist": CNN_MNIST,
-        "fmnist": CNN_MNIST,
-        "cifar": CNN_CIFAR
+        "gauss": UnivariateNet,
+        "gauss_mix": UnivariateNet,
+        "mnist": LeNet,
+        "fmnist": LeNet,
+        "cifar": AllConvNet
     }
     return models[model_name]

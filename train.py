@@ -72,12 +72,12 @@ def generate_testset(dataset_name, test_size, prior=0.5):
 
 
 # training procedure
-def train(device, method, dataset_name, datasets, loss_name, alpha, max_epochs, batch_size, stepsize, max_batch_size=50000):
+def train(device, method, dataset_name, datasets, loss_name, alpha, max_epochs, batch_size, stepsize, max_batch_size=50000, mixup_lam=None):
     # data setup ----------------
     trainset_P, trainset_U, valset_P, valset_U = datasets
     batch_num = len(trainset_U) // batch_size
     trainloader_P = torch.utils.data.DataLoader(trainset_P, batch_size=len(trainset_P)//batch_num, shuffle=True, drop_last=True, num_workers=2)
-    trainloader_U = torch.utils.data.DataLoader(trainset_U, batch_size=len(trainset_U)//batch_num, shuffle=True, drop_last=True, num_workers=2)
+    trainloader_U = torch.utils.data.DataLoader(trainset_U, batch_size=batch_size, shuffle=True, drop_last=True, num_workers=2)
     valloader_P = torch.utils.data.DataLoader(valset_P, batch_size=min(len(valset_P), max_batch_size), shuffle=False, drop_last=False, num_workers=1)
     valloader_U = torch.utils.data.DataLoader(valset_U, batch_size=min(len(valset_U), max_batch_size), shuffle=False, drop_last=False, num_workers=1)
 
@@ -90,9 +90,6 @@ def train(device, method, dataset_name, datasets, loss_name, alpha, max_epochs, 
     elif method == "nnPU":
         criterion = NonNegativeRiskEstimator(prior=alpha, loss=select_loss(loss_name))
         criterion_val = PURiskEstimator(prior=alpha, loss=select_loss("zero-one"))
-    elif method == "DRPU":
-        criterion = BregmanDivergence(f_df=select_loss(loss_name))
-        criterion_val = BregmanDivergence(f_df=select_loss(loss_name))
     else:
         criterion = NonNegativeBregmanDivergence(prior=alpha, f_df=select_loss(loss_name))
         criterion_val = BregmanDivergence(f_df=select_loss(loss_name))
@@ -125,11 +122,13 @@ def train(device, method, dataset_name, datasets, loss_name, alpha, max_epochs, 
                 num_P, num_U = len(x_p), len(x_u)
                 x = torch.cat([x_p, x_u]).to(device)
                 y = model(x).view(-1)
-                print(y[:3])
                 y_p, y_u = y[:num_P], y[num_P:]
                 criterion_val(y_p, y_u)
                 validation_loss.append(criterion_val.value())
             results.append("validation_loss", np.array(validation_loss).mean())
+
+        if (ep + 1) % 10 == 0:
+            print("Epoch {} finished.".format(ep + 1))
 
     if method in UNBIASED:
         train_prior, preds_P = None, None
@@ -182,8 +181,8 @@ def test(device, model, testset, train_prior, preds_P, max_batch_size=50000):
     return acc, auc, test_prior, thresh
 
 
-def find_boundary(device, model, thresh):
-    x = np.arange(-4, 4, 0.01)
+def find_boundary(device, model, thresh, min_max):
+    x = np.arange(round(min_max[0], 3), round(min_max[1], 3), 0.01)
     x_tensor = torch.from_numpy(x).float().reshape(len(x), 1).to(device)
     y = to_ndarray(model(x_tensor))
     return x[np.abs(y - thresh).argmin()]
@@ -193,7 +192,7 @@ def run(device_num, trial, method, dataset_name, loss_name, alpha, pos_labels, p
     device = torch.device(device_num) if device_num >= 0 and torch.cuda.is_available() else 'cpu'
     print("Device : {}".format(device))
     num_test = len(priors)
-    home_directory = create_directory("{}/{}-{}-{}".format(path, method, dataset_name, loss_name))
+    home_directory = create_directory("{}/{}/{}-{}-{}".format(path, dataset_name, method, dataset_name, loss_name))
     train_results = Results(["train_loss", "validation_loss"])
     test_results = [Results(["accuracy", "auc", "prior", "thresh", "boundary"]) for i in range(num_test)]
 
@@ -242,8 +241,9 @@ def run(device_num, trial, method, dataset_name, loss_name, alpha, pos_labels, p
             test_results[test_idx].append("prior", pri)
             test_results[test_idx].append("thresh", ths)
             if dataset_name in SYNTHETIC:
-                bnd = find_boundary(device, model, ths)
+                bnd = find_boundary(device, model, ths, testsets[test_idx].min_max())
                 test_results[test_idx].append("boundary", bnd)
+            print("Trial {}, Accuracy = {:.4f}".format(trial_idx, acc))
     
     # output results
     train_path = home_directory + "/train"
@@ -266,7 +266,7 @@ def run(device_num, trial, method, dataset_name, loss_name, alpha, pos_labels, p
             print("AUC : {:.4f} +/- {:.4f}".format(test_results[test_idx].mean("auc"), test_results[test_idx].stdev("auc")), file=f)
             print("Prior : {:.6f} +/- {:.6f}".format(test_results[test_idx].mean("prior"), test_results[test_idx].stdev("prior")), file=f)
             print("Thresh : {:.6f} +/- {:.6f}".format(test_results[test_idx].mean("thresh"), test_results[test_idx].stdev("thresh")), file=f)
-            if test_results[test_idx].get("boundary") is not None:
+            if test_results[test_idx].empty("boundary") is False:
                 print("Boundary : {:.6f} +/- {:.6f}".format(test_results[test_idx].mean("boundary"), test_results[test_idx].stdev("boundary")), file=f)
             print("", file=f)
         print("--Parameters--", file=f)

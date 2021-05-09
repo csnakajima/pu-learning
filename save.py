@@ -16,6 +16,9 @@ class Results(object):
         return self.map.get(key, None)
         # return self.map[key][index]
 
+    def empty(self, key):
+        return len(self.map[key]) == 0
+
     def mean(self, key):
         return np.array(self.map[key]).mean()
 
