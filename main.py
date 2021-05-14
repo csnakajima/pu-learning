@@ -12,15 +12,13 @@ def process_args(arguments):
     )
     parser.add_argument("--gpu", "-g", type=int, default=0,
                         help="GPU ID (negative value indicates CPU)")
-    parser.add_argument("--trial", "-t", type=int, default=5,
-                        help="Number of experiments")
     parser.add_argument("--method", "-m", type=str, default="nnDRPU", choices=["uPU", "nnPU", "DRPU"],
                         help="Learning algorithm")
     parser.add_argument("--dataset", "-d", type=str, default="mnist", choices=["gauss", "gauss_mix", "mnist", "fmnist", "cifar"],
                         help="Dataset name")
     parser.add_argument("--loss", "-l", type=str, default="LSIF", choices=["sigmoid", "logistic", "savage", "LSIF"],
                         help="Loss function")
-    parser.add_argument("--alpha", "-a", type=float, default=0.5,
+    parser.add_argument("--alpha", "-a", type=float, default=None,
                         help="Parameter for the risk estimator")
     parser.add_argument("--path", "-p", type=str, default="results",
                         help="Directory to output the results")
@@ -42,11 +40,11 @@ def process_args(arguments):
 def main(args):
     args = process_args(args)
     device_num = args.gpu
-    trial = args.trial
     method = args.method
     dataset_name = args.dataset
     loss_name = args.loss
     alpha = args.alpha
+    mixup_lam = None
     path = args.path
     synthetic_prior = None
     seed = args.seed
@@ -61,13 +59,20 @@ def main(args):
         batch_size = 200
         stepsize = 1e-3
         synthetic_prior = 0.4 if dataset_name == "gauss" else 0.6
-    elif dataset_name in ["mnist", "fmnist"]:
-        pos_labels = [0, 1] if dataset_name == "mnist" else [2, 3, 4, 5, 6, 9]
+    elif dataset_name == "mnist":
+        pos_labels = [0, 2, 4, 6, 8]
+        train_size = (2500, 50000)
+        validation_size = (500, 10000)
+        max_epochs = 50
+        batch_size = 500
+        stepsize = 2e-5
+    elif dataset_name == "fmnist":
+        pos_labels = [2, 3, 4, 5, 6, 9]
         train_size = (2500, 50000)
         validation_size = (500, 10000)
         max_epochs = 100
         batch_size = 500
-        stepsize = 1e-5
+        stepsize = 2e-5
     elif dataset_name == "cifar":
         pos_labels = [0, 1, 8, 9]
         train_size = (2500, 45000)
@@ -75,10 +80,8 @@ def main(args):
         max_epochs = 100
         batch_size = 500
         stepsize = 1e-5
-
     
     run(device_num=device_num,
-        trial=trial,
         method=method,
         dataset_name=dataset_name,
         loss_name=loss_name,
@@ -92,6 +95,7 @@ def main(args):
         stepsize=stepsize,
         path=path,
         synthetic_prior=synthetic_prior,
+        mixup_lam=mixup_lam,
         seed=seed
     )
 

@@ -11,12 +11,17 @@ class ImageDataset(torch.utils.data.Dataset):
             assert np.max(indices) < self.__len__()
             self.data = self.data[indices]
             self.targets = np.array(self.targets)[indices]
+        else:
+            self.targets = np.array(self.targets)
         # prior shift
         if prior is not None:
             assert 0 < prior < 1
             self.prior_shift(pos_labels, prior)
         if num_labeled > 0:
             self.assign_positive(pos_labels, num_labeled)
+        if train is False:
+            self.data = self.data[:5000]
+            self.targets = self.targets[:5000]
 
     def assign_positive(self, pos_labels, num_labeled):
         isPositive = np.vectorize(lambda x: x in pos_labels)
@@ -39,6 +44,7 @@ class ImageDataset(torch.utils.data.Dataset):
         else:
             neg_indices = neg_indices[:int((1 - prior) / prior * len(pos_indices))]
         indices = np.concatenate([pos_indices, neg_indices])
+        np.random.shuffle(indices)
         self.data = self.data[indices]
         self.targets = self.targets[indices]
 

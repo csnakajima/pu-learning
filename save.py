@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 import os
 import matplotlib.pyplot as plt
 
@@ -13,8 +14,7 @@ class Results(object):
         self.map[key].append(value)
 
     def get(self, key, index=-1):
-        return self.map.get(key, None)
-        # return self.map[key][index]
+        return self.map.get(key, [0])[index]
 
     def empty(self, key):
         return len(self.map[key]) == 0
@@ -51,25 +51,30 @@ class Results(object):
         self.plot(self.map.keys(), path, xlabel, ylabel, marker)
 
 
-def create_directory(path):
+def create_directory(path, another_directory=True):
     file_idx = 1
     try:
         os.makedirs(path)
     except FileExistsError as err:
-        print("catch FileExistError: ", err)
-        file_idx = 1
-        while file_idx < 10:
-            try:
-                os.makedirs(path + "_{}".format(file_idx))
-            except FileExistsError as err:
-                print("catch FileExistError: ", err)
-                file_idx += 1
-            else:
-                path = path + "_{}".format(file_idx)
-                break
-        assert file_idx < 10
-    print("created directory: {}".format(path))
+        if another_directory is True:
+            print("catch FileExistError: ", err)
+            file_idx = 1
+            while file_idx < 10:
+                try:
+                    os.makedirs(path + "_{}".format(file_idx))
+                except FileExistsError as err:
+                    print("catch FileExistError: ", err)
+                    file_idx += 1
+                else:
+                    path = path + "_{}".format(file_idx)
+                    break
+            assert file_idx < 10
+    print("Save to directory {}".format(path))
     return path
+
+
+def save_model(model, path):
+    torch.save(model.state_dict(), path + "/checkpoint.pth.tar")
 
 
 def plot_roc_curve(fpr, tpr, path="results/roc_curve.png"):
