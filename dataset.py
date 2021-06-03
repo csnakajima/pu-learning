@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 import torchvision
-from matplotlib import pyplot as plt
 
 
 class ImageDataset(torch.utils.data.Dataset):
@@ -58,6 +57,12 @@ class MNIST(torchvision.datasets.MNIST, ImageDataset):
 class FashionMNIST(torchvision.datasets.FashionMNIST, ImageDataset):
     def __init__(self, root, pos_labels, num_labeled=0, prior=None, indices=None, train=True, transform=None, target_transform=None, download=True):
         torchvision.datasets.FashionMNIST.__init__(self, root=root, train=train, transform=transform, target_transform=target_transform, download=download)
+        ImageDataset.__init__(self, pos_labels, num_labeled, prior, indices, train)
+
+
+class KuzushijiMNIST(torchvision.datasets.KMNIST, ImageDataset):
+    def __init__(self, root, pos_labels, num_labeled=0, prior=None, indices=None, train=True, transform=None, target_transform=None, download=True):
+        torchvision.datasets.KMNIST.__init__(self, root=root, train=train, transform=transform, target_transform=target_transform, download=download)
         ImageDataset.__init__(self, pos_labels, num_labeled, prior, indices, train)
 
 
@@ -159,6 +164,7 @@ def get_image_dataset(dataset_name, pos_labels, num_labeled=0, prior=None, indic
     datasets = {
         "mnist": MNIST,
         "fmnist": FashionMNIST,
+        "kmnist": KuzushijiMNIST,
         "cifar": CIFAR10,
         "svhn": SVHN
     }

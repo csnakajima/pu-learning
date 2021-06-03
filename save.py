@@ -51,24 +51,11 @@ class Results(object):
         self.plot(self.map.keys(), path, xlabel, ylabel, marker)
 
 
-def create_directory(path, another_directory=True):
-    file_idx = 1
+def create_directory(path):
     try:
         os.makedirs(path)
     except FileExistsError as err:
-        if another_directory is True:
-            print("catch FileExistError: ", err)
-            file_idx = 1
-            while file_idx < 10:
-                try:
-                    os.makedirs(path + "_{}".format(file_idx))
-                except FileExistsError as err:
-                    print("catch FileExistError: ", err)
-                    file_idx += 1
-                else:
-                    path = path + "_{}".format(file_idx)
-                    break
-            assert file_idx < 10
+        print("catch FileExistError: ", err)
     print("Save to directory {}".format(path))
     return path
 

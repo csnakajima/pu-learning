@@ -86,7 +86,13 @@ def train(device, method, dataset_name, datasets, loss_name, alpha, max_epochs, 
 
     # model setup ----------------
     activate_output = False if method in UNBIASED else True
-    model = select_model(dataset_name)(activate_output=activate_output).to(device)
+
+    if dataset_name in SYNTHETIC:
+        means = trainset_U[:][0].to(device)
+        model = select_model(dataset_name)(means=means, activate_output=activate_output).to(device)
+    else:
+         model = select_model(dataset_name)(activate_output=activate_output).to(device)
+
     if method == "uPU":
         criterion = PURiskEstimator(prior=alpha, loss=select_loss(loss_name))
         criterion_val = PURiskEstimator(prior=alpha, loss=select_loss("zero-one"))
@@ -99,7 +105,9 @@ def train(device, method, dataset_name, datasets, loss_name, alpha, max_epochs, 
 
     # trainer setup ----------------
     # stepsize = 1e-5
-    optimizer = torch.optim.Adam(params=model.parameters(), lr=stepsize, weight_decay=0.005, betas=(0.9, 0.999))
+    betas = (0.5, 0.999) if dataset_name in SYNTHETIC else (0.9, 0.999)
+    weight_decay = 0.1 if dataset_name in SYNTHETIC else 0.005
+    optimizer = torch.optim.Adam(params=model.parameters(), lr=stepsize, weight_decay=weight_decay, betas=betas)
     results = Results(["train_loss", "validation_loss"])
 
     for ep in range(max_epochs):
@@ -139,7 +147,7 @@ def train(device, method, dataset_name, datasets, loss_name, alpha, max_epochs, 
 
         if ep % 20 == 19:
             stepsize /= 2
-            optimizer = torch.optim.Adam(params=model.parameters(), lr=stepsize, weight_decay=0.005, betas=(0.9, 0.999))
+            optimizer = torch.optim.Adam(params=model.parameters(), lr=stepsize, weight_decay=weight_decay, betas=betas)
 
         print("Epoch {}, Train loss : {:.4f}, Val loss : {:.4f}".format(ep, results.get("train_loss"), results.get("validation_loss")))
 
@@ -197,19 +205,22 @@ def find_boundary(device, model, thresh, min_max):
     x = np.arange(round(min_max[0], 3), round(min_max[1], 3), 0.01)
     x_tensor = torch.from_numpy(x).float().reshape(len(x), 1).to(device)
     y = to_ndarray(model(x_tensor))
-    return x[np.abs(y - thresh).argmin()]
-    
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.grid()
+    ax.plot(x, y)
+    fig.savefig("results/prediction.png")
+    for i, p in enumerate(y):
+        if i > 0 and y[i - 1] - thresh < 0 and y[i] - thresh >= 0:
+            return x[i]
+    return x[0] if x[0] - thresh > 0 else x[-1]
 
-def run(device_num, method, dataset_name, loss_name, alpha, pos_labels, priors, train_size, validation_size, max_epochs, batch_size, stepsize, mixup_lam, path, synthetic_prior, seed):
+
+def run(device_num, method, dataset_name, loss_name, alpha, pos_labels, priors, train_size, validation_size, max_epochs, batch_size, stepsize, mixup_lam, path, synthetic_prior, seed, id):
     device = torch.device(device_num) if device_num >= 0 and torch.cuda.is_available() else 'cpu'
     print("Device : {}".format(device))
     num_test = len(priors)
-    home_directory = create_directory("{}/{}/{}-{}-{}".format(path, dataset_name, method, dataset_name, loss_name), another_directory=False)
-    log_idx = 0
-    while os.path.exists(home_directory + "/log_{}.txt".format(log_idx)):
-        log_idx += 1
-    train_results = Results(["train_loss", "validation_loss"])
-    # test_results = [Results(["accuracy", "auc", "prior", "thresh", "boundary"]) for i in range(num_test)]
+    home_directory = create_directory("{}/{}/{}-{}-{}".format(path, dataset_name, method, dataset_name, loss_name))
 
     # loading training dataset
     if dataset_name in SYNTHETIC:
@@ -220,7 +231,9 @@ def run(device_num, method, dataset_name, loss_name, alpha, pos_labels, priors, 
     # estimate the class prior for uPU/nnPU
     if alpha is None:
         trans = Tensor_to_1darray()
-        alpha = KM2_estimate(train_P, train_U, 3000, 3000, trans) if method in UNBIASED else 0
+        pos = np.concatenate([np.array([trans(x) for x, t in train_P]), np.array([trans(x) for x, t in val_P])])[:2000]
+        neg = np.concatenate([np.array([trans(x) for x, t in train_U]), np.array([trans(x) for x, t in val_U])])[:2000]
+        alpha = KM2_estimate(pos, neg) if method in UNBIASED else 0
         print("KM2 estimate : {:.4f}".format(alpha))
     
     # training
@@ -238,19 +251,15 @@ def run(device_num, method, dataset_name, loss_name, alpha, pos_labels, priors, 
         mixup_lam=mixup_lam
     )
     # save training results
-    history_path = create_directory(home_directory + "/train/history_{}".format(log_idx))
+    history_path = create_directory(home_directory + "/train/history_{}".format(id))
     history.saveall(history_path)
     history.plotall(history_path)
     train_loss = history.get("train_loss")
     validation_loss = history.get("validation_loss")
     save_model(model, history_path)
-    # train_results.append("train_loss", history.get("train_loss"))
-    # train_results.append("validation_loss", history.get("validation_loss"))
-    # train_path = home_directory + "/train"
-    # train_results.saveall(train_path)
 
     # output summary
-    with open(home_directory + "/log_{}.txt".format(log_idx), mode='a', encoding="utf-8") as f:
+    with open(home_directory + "/log_{}.txt".format(id), mode='a', encoding="utf-8") as f:
         print("Method : {}\nDataset : {}\nLoss function : {}\nAlpha : {}\n".format(method, dataset_name, loss_name, alpha), file=f)
         print("--Training result--\n", file=f)
         print("Train loss : {:.9f}".format(train_loss), file=f)
@@ -277,7 +286,7 @@ def run(device_num, method, dataset_name, loss_name, alpha, pos_labels, priors, 
             bnd = find_boundary(device, model, ths, testsets[test_idx].min_max())
     
         # output results
-        test_path = create_directory(home_directory + "/test-{}".format(test_idx + 1), another_directory=False)
+        test_path = create_directory(home_directory + "/test-{}".format(test_idx + 1))
         with open(test_path + "/accuracy.txt", mode='a', encoding="utf-8") as f:
             print(acc, file=f)
         with open(test_path + "/auc.txt", mode='a', encoding="utf-8") as f:
@@ -291,8 +300,8 @@ def run(device_num, method, dataset_name, loss_name, alpha, pos_labels, priors, 
             with open(test_path + "/boundary.txt", mode='a', encoding="utf-8") as f:
                 print(bnd, file=f)
 
-        # output summary
-        with open(home_directory + "/log_{}.txt".format(log_idx), mode='a', encoding="utf-8") as f:
+        # output summary of test results
+        with open(home_directory + "/log_{}.txt".format(id), mode='a', encoding="utf-8") as f:
             print("Test {} : prior = {}".format(test_idx + 1, priors[test_idx]), file=f)
             print("Accuracy : {:.4f}".format(acc), file=f)
             print("AUC : {:.4f}".format(auc), file=f)
@@ -302,8 +311,8 @@ def run(device_num, method, dataset_name, loss_name, alpha, pos_labels, priors, 
                 print("Boundary : {:.6f}".format(bnd), file=f)
             print("", file=f)
 
-    # output summary
-    with open(home_directory + "/log_{}.txt".format(log_idx), mode='a', encoding="utf-8") as f:
+    # output summary of parameters
+    with open(home_directory + "/log_{}.txt".format(id), mode='a', encoding="utf-8") as f:
         print("--Parameters--", file=f)
         print("train_size = {}".format(train_size), file=f)
         print("validation_size = {}".format(validation_size), file=f)
