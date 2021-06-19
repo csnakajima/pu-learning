@@ -62,7 +62,7 @@ class FashionMNIST(torchvision.datasets.FashionMNIST, ImageDataset):
         ImageDataset.__init__(self, num_labeled, prior, indices, train)
 
 
-class KuzushijiMNIST(torchvision.datasets.KMNIST, ImageDataset):
+class KMNIST(torchvision.datasets.KMNIST, ImageDataset):
     def __init__(self, root, num_labeled=0, prior=None, indices=None, train=True, transform=None, target_transform=None, download=True):
         torchvision.datasets.KMNIST.__init__(self, root=root, train=train, transform=transform, target_transform=target_transform, download=download)
         ImageDataset.__init__(self, num_labeled, prior, indices, train)
@@ -160,7 +160,7 @@ def choose_image_dataset(dataset_name):
     datasets = {
         "mnist": MNIST,
         "fmnist": FashionMNIST,
-        "kmnist": KuzushijiMNIST,
+        "kmnist": KMNIST,
         "cifar": CIFAR10
     }
     return datasets[dataset_name]
