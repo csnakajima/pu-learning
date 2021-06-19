@@ -51,17 +51,74 @@ class Results(object):
         self.plot(self.map.keys(), path, xlabel, ylabel, marker)
 
 
-def create_directory(path):
-    try:
-        os.makedirs(path)
-    except FileExistsError as err:
-        print("catch FileExistError: ", err)
-    print("Save to directory {}".format(path))
-    return path
-
-
 def save_model(model, path):
     torch.save(model.state_dict(), path + "/checkpoint.pth.tar")
+
+
+def save_train_history(path, model, history):
+    history.saveall(path)
+    history.plotall(path)
+    save_model(model, path)
+
+
+def output_train_results(path, history, prior):
+    train_loss, validation_loss = history.get("train_loss"), history.get("validation_loss")
+    with open(path, mode='a', encoding="utf-8") as f:
+        print("--Training result--\n", file=f)
+        print("Train loss : {:.9f}".format(train_loss), file=f)
+        print("Validation loss : {:.9f}".format(validation_loss), file=f)
+        print("Prior : {:.6f}".format(prior), file=f)
+        print("", file=f)
+
+
+def output_test_results(path, test_idx, true_prior, acc, auc, prior=None, thresh=None, boundary=None):
+    with open(path, mode='a', encoding="utf-8") as f:
+        if test_idx == 0:
+            print("--Test result---\n", file=f)
+        print("Test {} : Dataset prior = {}".format(test_idx, true_prior), file=f)
+        print("Accuracy : {:.6f}".format(acc), file=f)
+        print("AUC : {:.6f}".format(auc), file=f)
+        if prior is not None:
+            print("Prior : {:.6f}".format(prior), file=f)
+        if thresh is not None:
+            print("Thresh : {:.6f}".format(thresh), file=f)
+        if boundary is not None:
+            print("Boundary : {:.6f}".format(boundary), file=f)
+        print("", file=f)
+
+
+def append_test_results(path, acc, auc, prior=None, thresh=None, boundary=None):
+    with open(os.path.join(path, "accuracy.txt"), mode='a', encoding="utf-8") as f:
+        print(acc, file=f)
+    with open(os.path.join(path, "auc.txt"), mode='a', encoding="utf-8") as f:
+        print(auc, file=f)
+    if prior is not None:
+        with open(os.path.join(path, "prior.txt"), mode='a', encoding="utf-8") as f:
+            print(prior, file=f)
+    if thresh is not None:
+        with open(os.path.join(path, "thresh.txt"), mode='a', encoding="utf-8") as f:
+            print(thresh, file=f)
+    if boundary is not None:
+        with open(os.path.join(path, "boundary.txt"), mode='a', encoding="utf-8") as f:
+            print(boundary, file=f)
+
+
+def output_config(path, train_size, val_size, max_epochs, batch_size, lr, alpha, seed):
+    with open(path, mode='a', encoding="utf-8") as f:
+        print("--Parameters--", file=f)
+        print("train_size = {}".format(train_size), file=f)
+        print("validation_size = {}".format(val_size), file=f)
+        print("max_epochs = {}".format(max_epochs), file=f)
+        print("batch_size = {}".format(batch_size), file=f)
+        print("lr = {}".format(lr), file=f)
+        print("alpha = {}".format(alpha), file=f)
+        print("random seed = {}".format(seed), file=f)
+
+
+def getdirs(dir_path):
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+    return dir_path
 
 
 def plot_roc_curve(fpr, tpr, path="results/roc_curve.png"):

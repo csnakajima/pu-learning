@@ -50,6 +50,20 @@ class NonNegativeRiskEstimator(PURiskEstimator):
         return self.L if E_u - self.prior * E_pn >= self.thresh else self.weight * (self.prior * E_pn - E_u)
 
 
+class AsymmetricNonNegativeRiskEstimator(NonNegativeRiskEstimator):
+    def __init__(self, train_prior, test_prior, loss, thresh=0, weight=1):
+        super().__init__(train_prior, loss, thresh, weight)
+        self.train_prior = train_prior
+        self.test_prior = test_prior
+
+    def __call__(self, y_p, y_u):
+        E_pp = torch.mean(self.loss(y_p))
+        E_pn = torch.mean(self.loss(-y_p))
+        E_u = torch.mean(self.loss(-y_u))
+        self.L = self.test_prior * E_pp + (1 - self.test_prior) / (1 - self.train_prior) * max(0, E_u - self.train_prior * E_pn)
+        return self.L if E_u - self.train_prior * E_pn >= self.thresh else self.weight * (self.train_prior * E_pn - E_u)
+
+
 class BregmanDivergence(object):
     def __init__(self, f_df):
         self.f = f_df[0]
@@ -67,23 +81,23 @@ class BregmanDivergence(object):
 
 
 class NonNegativeBregmanDivergence(BregmanDivergence):
-    def __init__(self, prior, f_df, thresh=0, weight=1):
+    def __init__(self, alpha, f_df, thresh=0, weight=1):
         super().__init__(f_df)
-        self.prior = prior
+        self.alpha = alpha
         self.thresh = thresh
         self.weight = weight
         self.f_dual = lambda x: x * self.df(x) -self.f(x)
         self.f_nn = lambda x: self.f_dual(x) - self.f_dual(0 * x)
 
     def __call__(self, y_p, y_u):
-        E_pp = torch.mean(-self.df(y_p) + self.prior * self.f_nn(y_p))
+        E_pp = torch.mean(-self.df(y_p) + self.alpha * self.f_nn(y_p))
         E_pn = torch.mean(self.f_nn(y_p))
         E_u = torch.mean(self.f_nn(y_u))
-        self.L = E_pp + max(0, E_u - self.prior * E_pn) + self.f_dual(0 * E_u)
-        return self.L if E_u - self.prior * E_pn >= self.thresh else self.weight * (self.prior * E_pn - E_u)
+        self.L = E_pp + max(0, E_u - self.alpha * E_pn) + self.f_dual(0 * E_u)
+        return self.L if E_u - self.alpha * E_pn >= self.thresh else self.weight * (self.alpha * E_pn - E_u)
 
 
-def select_loss(loss_name):
+def choose_loss(loss_name):
     losses = {  
         "zero-one": lambda x: (torch.sign(-x) + 1) / 2,
         "sigmoid": lambda x: torch.sigmoid(-x),

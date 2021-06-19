@@ -139,7 +139,7 @@ class ConvPoolNet(nn.Module):
         return x
 
 
-def select_model(model_name):
+def choose_model(model_name):
     models = {
         "gauss": LinearClassifier,
         "gauss_mix": LinearClassifier,

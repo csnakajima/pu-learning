@@ -4,7 +4,9 @@ import torchvision
 
 
 class ImageDataset(torch.utils.data.Dataset):
-    def __init__(self, pos_labels, num_labeled=0, prior=None, indices=None, train=True):
+    pos_labels = []
+    
+    def __init__(self, num_labeled=0, prior=None, indices=None, train=True):
         self.dataset_type = "Image"
         if indices is not None:
             assert np.max(indices) < self.__len__()
@@ -15,15 +17,15 @@ class ImageDataset(torch.utils.data.Dataset):
         # prior shift
         if prior is not None:
             assert 0 < prior < 1
-            self.prior_shift(pos_labels, prior)
+            self.prior_shift(prior)
         if num_labeled > 0:
-            self.assign_positive(pos_labels, num_labeled)
+            self.assign_positive(num_labeled)
         if train is False:
             self.data = self.data[:5000]
             self.targets = self.targets[:5000]
 
-    def assign_positive(self, pos_labels, num_labeled):
-        isPositive = np.vectorize(lambda x: x in pos_labels)
+    def assign_positive(self, num_labeled):
+        isPositive = np.vectorize(lambda x: x in ImageDataset.pos_labels)
         indices = np.where(isPositive(self.targets) == True)[0]
         assert num_labeled <= len(indices)
         np.random.shuffle(indices)
@@ -31,8 +33,8 @@ class ImageDataset(torch.utils.data.Dataset):
         self.data = self.data[indices]
         self.targets = np.array(self.targets)[indices]
 
-    def prior_shift(self, pos_labels, prior):
-        isPositive = np.vectorize(lambda x: x in pos_labels)
+    def prior_shift(self, prior):
+        isPositive = np.vectorize(lambda x: x in ImageDataset.pos_labels)
         pos_indices = np.where(isPositive(self.targets) == True)[0]
         neg_indices = np.where(isPositive(self.targets) == False)[0]
         np.random.shuffle(pos_indices)
@@ -49,32 +51,27 @@ class ImageDataset(torch.utils.data.Dataset):
 
 
 class MNIST(torchvision.datasets.MNIST, ImageDataset):
-    def __init__(self, root, pos_labels, num_labeled=0, prior=None, indices=None, train=True, transform=None, target_transform=None, download=True):
+    def __init__(self, root, num_labeled=0, prior=None, indices=None, train=True, transform=None, target_transform=None, download=True):
         torchvision.datasets.MNIST.__init__(self, root=root, train=train, transform=transform, target_transform=target_transform, download=download)
-        ImageDataset.__init__(self, pos_labels, num_labeled, prior, indices, train)
+        ImageDataset.__init__(self, num_labeled, prior, indices, train)
 
 
 class FashionMNIST(torchvision.datasets.FashionMNIST, ImageDataset):
-    def __init__(self, root, pos_labels, num_labeled=0, prior=None, indices=None, train=True, transform=None, target_transform=None, download=True):
+    def __init__(self, root, num_labeled=0, prior=None, indices=None, train=True, transform=None, target_transform=None, download=True):
         torchvision.datasets.FashionMNIST.__init__(self, root=root, train=train, transform=transform, target_transform=target_transform, download=download)
-        ImageDataset.__init__(self, pos_labels, num_labeled, prior, indices, train)
+        ImageDataset.__init__(self, num_labeled, prior, indices, train)
 
 
 class KuzushijiMNIST(torchvision.datasets.KMNIST, ImageDataset):
-    def __init__(self, root, pos_labels, num_labeled=0, prior=None, indices=None, train=True, transform=None, target_transform=None, download=True):
+    def __init__(self, root, num_labeled=0, prior=None, indices=None, train=True, transform=None, target_transform=None, download=True):
         torchvision.datasets.KMNIST.__init__(self, root=root, train=train, transform=transform, target_transform=target_transform, download=download)
-        ImageDataset.__init__(self, pos_labels, num_labeled, prior, indices, train)
+        ImageDataset.__init__(self, num_labeled, prior, indices, train)
 
 
 class CIFAR10(torchvision.datasets.CIFAR10, ImageDataset):
-    def __init__(self, root, pos_labels, num_labeled=0, prior=None, indices=None, train=True, transform=None, target_transform=None, download=True):
+    def __init__(self, root, num_labeled=0, prior=None, indices=None, train=True, transform=None, target_transform=None, download=True):
         torchvision.datasets.CIFAR10.__init__(self, root=root, train=train, transform=transform, target_transform=target_transform, download=download)
-        ImageDataset.__init__(self, pos_labels, num_labeled, prior, indices, train)
-
-class SVHN(torchvision.datasets.SVHN, ImageDataset):
-    def __init__(self, root, pos_labels, num_labeled=0, prior=None, indices=None, train=True, transform=None, target_transform=None, download=True):
-        torchvision.datasets.SVHN.__init__(self, root=root, train=train, transform=transform, target_transform=target_transform, download=download)
-        ImageDataset.__init__(self, pos_labels, num_labeled, prior, indices, train)
+        ImageDataset.__init__(self, num_labeled, prior, indices, train)
 
 
 class SyntheticDataset(torch.utils.data.Dataset):
@@ -159,29 +156,55 @@ class Tensor_to_1darray(object):
             return x.view(-1).detach().numpy().copy()
 
 
-# num_labeled > 0 -> Positive set / num_labeled = 0 -> Unlabeled set / train = False -> Test set
-def get_image_dataset(dataset_name, pos_labels, num_labeled=0, prior=None, indices=None, train=True, transform=None):
+def choose_image_dataset(dataset_name):
     datasets = {
         "mnist": MNIST,
         "fmnist": FashionMNIST,
         "kmnist": KuzushijiMNIST,
-        "cifar": CIFAR10,
-        "svhn": SVHN
+        "cifar": CIFAR10
     }
-    transform = torchvision.transforms.ToTensor() if transform is None else transform
-    if train is True:
-        target_transform = torchvision.transforms.Lambda(lambda x: 1) if num_labeled > 0 else torchvision.transforms.Lambda(lambda x: -1)
-    else:
-        target_transform = torchvision.transforms.Lambda(lambda x: 1 if x in pos_labels else -1)
-    return datasets[dataset_name]("dataset", pos_labels, num_labeled, prior, indices, train, transform=transform, target_transform=target_transform)
+    return datasets[dataset_name]
 
 
-# prior = 1 -> Positive set / labeled = False -> Unlabeled set / labeled = True -> Test set
-def get_synthetic_dataset(dataset_name, num, prior, labeled=True, transform=None):
+def choose_synthetic_dataset(dataset_name):
     datasets = {
         "gauss": Gaussian,
         "gauss_mix": Gaussian_Mixture
     }
-    transform = ndarray_to_Tensor() if transform is None else transform
-    target_transform = (lambda x : -1) if labeled is False else None
-    return datasets[dataset_name](num, prior, transform=transform, target_transform=target_transform)
+    return datasets[dataset_name]
+
+
+def get_image_positive(dataset_name, num_labeled, indices=None, root="dataset"):
+    transform = torchvision.transforms.ToTensor()
+    target_transform = torchvision.transforms.Lambda(lambda x: 1)
+    return choose_image_dataset(dataset_name)(root, num_labeled, indices=indices, train=True, transform=transform, target_transform=target_transform)
+
+
+def get_image_unlabeled(dataset_name, indices=None, root="dataset"):
+    transform = torchvision.transforms.ToTensor()
+    target_transform = torchvision.transforms.Lambda(lambda x: -1)
+    return choose_image_dataset(dataset_name)(root, indices=indices, train=True, transform=transform, target_transform=target_transform)
+
+
+def get_image_test(dataset_name, prior, indices=None, root="dataset"):
+    transform = torchvision.transforms.ToTensor()
+    target_transform = torchvision.transforms.Lambda(lambda x: 1 if x in ImageDataset.pos_labels else -1)
+    return choose_image_dataset(dataset_name)(root, prior=prior, indices=indices, train=False, transform=transform, target_transform=target_transform)
+
+
+def get_synthetic_positive(dataset_name, num):
+    transform = ndarray_to_Tensor()
+    target_transform = torchvision.transforms.Lambda(lambda x: 1)
+    return choose_synthetic_dataset(dataset_name)(num, prior=1, transform=transform, target_transform=target_transform)
+
+
+def get_synthetic_unlabeled(dataset_name, num, prior):
+    transform = ndarray_to_Tensor()
+    target_transform = torchvision.transforms.Lambda(lambda x: -1)
+    return choose_synthetic_dataset(dataset_name)(num, prior, transform=transform, target_transform=target_transform)
+
+
+def get_synthetic_test(dataset_name, num, prior):
+    transform = ndarray_to_Tensor()
+    target_transform = None
+    return choose_synthetic_dataset(dataset_name)(num, prior, transform=transform, target_transform=target_transform)
