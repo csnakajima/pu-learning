@@ -116,8 +116,7 @@ def output_config(path, train_size, val_size, max_epochs, batch_size, lr, alpha,
 
 
 def getdirs(dir_path):
-    if not os.path.exists(dir_path):
-        os.makedirs(dir_path)
+    os.makedirs(dir_path, exist_ok=True)
     return dir_path
 
 
