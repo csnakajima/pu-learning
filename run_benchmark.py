@@ -138,6 +138,7 @@ def nnPU(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch
 def PUa(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_size, lr, true_test_priors, device_num, res_dir, data_dir, seed, id):
     device = torch.device(device_num) if device_num >= 0 and torch.cuda.is_available() else 'cpu'
     res_dir = getdirs(os.path.join(os.getcwd(), "{}/{}/{}".format(res_dir, "PUa", dataset_name)))
+    data_dir = getdirs(os.path.join(os.getcwd(), data_dir))
     
     trainloader_P, trainloader_U, valloader_P, valloader_U, trainset_P, trainset_U, _, _ = load_trainset(dataset_name, train_size, val_size, batch_size, data_dir)
     
@@ -187,6 +188,7 @@ def PUa(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_
 def DRPU(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_size, lr, true_test_priors, device_num, res_dir, data_dir, seed, id):
     device = torch.device(device_num) if device_num >= 0 and torch.cuda.is_available() else 'cpu'
     res_dir = getdirs(os.path.join(os.getcwd(), "{}/{}/{}".format(res_dir, "DRPU", dataset_name)))
+    data_dir = getdirs(os.path.join(os.getcwd(), data_dir))
     
     trainloader_P, trainloader_U, valloader_P, valloader_U, _, _, _, _ = load_trainset(dataset_name, train_size, val_size, batch_size, data_dir)
 
