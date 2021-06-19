@@ -1,3 +1,5 @@
+# downloaded from http://web.eecs.umich.edu/~cscott/code.html#kmpe
+
 # -*- coding: utf-8 -*-
 """
 DO MIXTURE PROPORTION ESTIMATION 
