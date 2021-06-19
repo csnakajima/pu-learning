@@ -18,11 +18,11 @@ def process_args(arguments):
     parser.add_argument("--num_positive", "-n", type=int, default=2500,
                         help="Number of positively labeled data for training dataset")
     parser.add_argument("--loss", "-l", type=str, default="LSIF", choices=["sigmoid", "logistic", "savage", "LSIF"],
-                        help="Loss function")
+                        help="Loss function name")
     parser.add_argument("--alpha", "-a", type=float, default=None,
                         help="Parameter for risk estimator")
     parser.add_argument("--preset", "-p", type=bool, default=False,
-                        help="Use preset of parameter settings")
+                        help="Use preset of parameter settings if True")
     parser.add_argument("--max_epochs",  type=int, default=100,
                         help="Number of epochs")
     parser.add_argument("--batch_size", type=int, default=500,
@@ -31,8 +31,10 @@ def process_args(arguments):
                         help="Learning rate")
     parser.add_argument("--gpu", type=int, default=0,
                         help="GPU ID (negative value indicates CPU)")
-    parser.add_argument("--path", type=str, default="results",
-                        help="Directory to output the results")
+    parser.add_argument("--res_dir", type=str, default="results",
+                        help="Directory to output results")
+    parser.add_argument("--data_dir", type=str, default="dataset",
+                        help="Directory of datasets")
     parser.add_argument("--seed", "-s", type=int, default=None,
                         help="Random seed")
     parser.add_argument("--id", "-i", type=int, default=None,
@@ -92,7 +94,7 @@ def main(args):
             true_train_prior=true_train_prior,
             true_test_priors=true_test_priors,
             device_num=args.gpu,
-            path=args.path,
+            res_dir=args.res_dir,
             seed=args.seed,
             id=args.id
         )
@@ -161,7 +163,8 @@ def main(args):
             lr=lr,
             true_test_priors=true_test_priors,
             device_num=args.gpu,
-            path=args.path,
+            res_dir=args.res_dir,
+            data_dir=args.data_dir,
             seed=args.seed,
             id=args.id
         )

@@ -34,9 +34,9 @@ def load_testset(dataset_name, test_size, batch_size, prior):
 
 
 
-def uPU(dataset_name, train_size, val_size, test_size, alpha, loss_name, max_epochs, batch_size, lr, true_train_prior, true_test_priors, device_num, path, seed, id):
+def uPU(dataset_name, train_size, val_size, test_size, alpha, loss_name, max_epochs, batch_size, lr, true_train_prior, true_test_priors, device_num, res_dir, seed, id):
     device = torch.device(device_num) if device_num >= 0 and torch.cuda.is_available() else 'cpu'
-    home_directory = getdirs(os.path.join(os.getcwd(), "{}/{}/{}".format(path, "uPU", dataset_name)))
+    res_dir = getdirs(os.path.join(os.getcwd(), "{}/{}/{}".format(res_dir, "uPU", dataset_name)))
     
     trainloader_P, trainloader_U, valloader_P, valloader_U, trainset_P, trainset_U, _, _ = load_trainset(dataset_name, train_size, val_size, batch_size, true_train_prior)
     
@@ -67,24 +67,24 @@ def uPU(dataset_name, train_size, val_size, test_size, alpha, loss_name, max_epo
         device=device
     )
 
-    save_train_history(getdirs(os.path.join(home_directory, "train/history_{}".format(id))), model, history)
-    output_train_results(os.path.join(home_directory, "log_{}.txt".format(id)), history, train_prior)
+    save_train_history(getdirs(os.path.join(res_dir, "train/history_{}".format(id))), model, history)
+    output_train_results(os.path.join(res_dir, "log_{}.txt".format(id)), history, train_prior)
 
     for i, true_prior in enumerate(true_test_priors):
         testloader, testset = load_testset(dataset_name, test_size, batch_size, true_prior)
         acc, auc = prediction(model, testloader, device)
         boundary = find_boundary(model, min_max=testset.min_max(), device=device)
-        output_test_results(os.path.join(home_directory, "log_{}.txt".format(id)), i, true_prior, acc, auc, boundary)
-        append_test_results(getdirs(os.path.join(home_directory, "test-{}".format(i))), acc, auc, boundary)
+        output_test_results(os.path.join(res_dir, "log_{}.txt".format(id)), i, true_prior, acc, auc, boundary)
+        append_test_results(getdirs(os.path.join(res_dir, "test-{}".format(i))), acc, auc, boundary)
 
-    output_config(os.path.join(home_directory, "log_{}.txt".format(id)), train_size, val_size, max_epochs, batch_size, lr, alpha, seed)
-
-
+    output_config(os.path.join(res_dir, "log_{}.txt".format(id)), train_size, val_size, max_epochs, batch_size, lr, alpha, seed)
 
 
-def DRPU(dataset_name, train_size, val_size, test_size, alpha, loss_name, max_epochs, batch_size, lr, true_train_prior, true_test_priors, device_num, path, seed, id):
+
+
+def DRPU(dataset_name, train_size, val_size, test_size, alpha, loss_name, max_epochs, batch_size, lr, true_train_prior, true_test_priors, device_num, res_dir, seed, id):
     device = torch.device(device_num) if device_num >= 0 and torch.cuda.is_available() else 'cpu'
-    home_directory = getdirs(os.path.join(os.getcwd(), "{}/{}/{}".format(path, "DRPU", dataset_name)))
+    res_dir = getdirs(os.path.join(os.getcwd(), "{}/{}/{}".format(res_dir, "DRPU", dataset_name)))
     
     trainloader_P, trainloader_U, valloader_P, valloader_U, _, trainset_U, _, _ = load_trainset(dataset_name, train_size, val_size, batch_size, true_train_prior)
 
@@ -111,8 +111,8 @@ def DRPU(dataset_name, train_size, val_size, test_size, alpha, loss_name, max_ep
 
     train_prior, preds_P = estimate_train_prior(model, valloader_P, valloader_U, device)
 
-    save_train_history(getdirs(os.path.join(home_directory, "train/history_{}".format(id))), model, history)
-    output_train_results(os.path.join(home_directory, "log_{}.txt".format(id)), history, train_prior)
+    save_train_history(getdirs(os.path.join(res_dir, "train/history_{}".format(id))), model, history)
+    output_train_results(os.path.join(res_dir, "log_{}.txt".format(id)), history, train_prior)
 
     for i, true_prior in enumerate(true_test_priors):
         testloader, testset = load_testset(dataset_name, test_size, batch_size, true_prior)
@@ -121,7 +121,7 @@ def DRPU(dataset_name, train_size, val_size, test_size, alpha, loss_name, max_ep
         thresh /= train_prior
         acc, auc = prediction(model, testloader, device, thresh)
         boundary = find_boundary(model, min_max=testset.min_max(), device=device, thresh=thresh)
-        output_test_results(os.path.join(home_directory, "log_{}.txt".format(id)), i, true_prior, acc, auc, test_prior, thresh, boundary)
-        append_test_results(getdirs(os.path.join(home_directory, "test-{}".format(i))), acc, auc, test_prior, thresh, boundary)
+        output_test_results(os.path.join(res_dir, "log_{}.txt".format(id)), i, true_prior, acc, auc, test_prior, thresh, boundary)
+        append_test_results(getdirs(os.path.join(res_dir, "test-{}".format(i))), acc, auc, test_prior, thresh, boundary)
 
-    output_config(os.path.join(home_directory, "log_{}.txt".format(id)), train_size, val_size, max_epochs, batch_size, lr, alpha, seed)
+    output_config(os.path.join(res_dir, "log_{}.txt".format(id)), train_size, val_size, max_epochs, batch_size, lr, alpha, seed)

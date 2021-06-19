@@ -17,14 +17,14 @@ def random_split(train_size, val_size):
     return indices[:train_size], indices[-val_size:]
 
 
-def load_trainset(dataset_name, train_size, val_size, batch_size):
+def load_trainset(dataset_name, train_size, val_size, batch_size, data_dir="dataset"):
     trainsize_P, trainsize_U = train_size
     valsize_P, valsize_U = val_size
     train_indices, val_indices = random_split(trainsize_U, valsize_U)
-    trainset_P = get_image_positive(dataset_name, trainsize_P, train_indices)
-    trainset_U = get_image_unlabeled(dataset_name, train_indices)
-    valset_P = get_image_positive(dataset_name, valsize_P, val_indices)
-    valset_U = get_image_unlabeled(dataset_name, val_indices)
+    trainset_P = get_image_positive(dataset_name, trainsize_P, train_indices, root=data_dir)
+    trainset_U = get_image_unlabeled(dataset_name, train_indices, root=data_dir)
+    valset_P = get_image_positive(dataset_name, valsize_P, val_indices, root=data_dir)
+    valset_U = get_image_unlabeled(dataset_name, val_indices, root=data_dir)
     batch_num = len(trainset_U) // batch_size
     trainloader_P = torch.utils.data.DataLoader(trainset_P, batch_size=len(trainset_P)//batch_num, shuffle=True, drop_last=True, num_workers=2)
     trainloader_U = torch.utils.data.DataLoader(trainset_U, batch_size=batch_size, shuffle=True, drop_last=True, num_workers=2)
@@ -33,19 +33,20 @@ def load_trainset(dataset_name, train_size, val_size, batch_size):
     return trainloader_P, trainloader_U, valloader_P, valloader_U, trainset_P, trainset_U, valset_P, valset_U
 
 
-def load_testset(dataset_name, batch_size, prior=None):
-    testset = get_image_test(dataset_name, prior)
+def load_testset(dataset_name, batch_size, prior=None, data_dir="dataset"):
+    testset = get_image_test(dataset_name, prior, root=data_dir)
     testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, drop_last=False, num_workers=1)
     return testloader, testset
 
 
 
 
-def uPU(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_size, lr, true_test_priors, device_num, path, seed, id):
+def uPU(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_size, lr, true_test_priors, device_num, res_dir, data_dir, seed, id):
     device = torch.device(device_num) if device_num >= 0 and torch.cuda.is_available() else 'cpu'
-    home_directory = getdirs(os.path.join(os.getcwd(), "{}/{}/{}".format(path, "uPU", dataset_name)))
+    res_dir = getdirs(os.path.join(os.getcwd(), "{}/{}/{}".format(res_dir, "uPU", dataset_name)))
+    data_dir = getdirs(os.path.join(os.getcwd(), data_dir))
     
-    trainloader_P, trainloader_U, valloader_P, valloader_U, trainset_P, trainset_U, _, _ = load_trainset(dataset_name, train_size, val_size, batch_size)
+    trainloader_P, trainloader_U, valloader_P, valloader_U, trainset_P, trainset_U, _, _ = load_trainset(dataset_name, train_size, val_size, batch_size, data_dir)
     
     if alpha is None:
         trans = Tensor_to_1darray()
@@ -73,25 +74,26 @@ def uPU(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_
         device=device
     )
 
-    save_train_history(getdirs(os.path.join(home_directory, "train/history_{}".format(id))), model, history)
-    output_train_results(os.path.join(home_directory, "log_{}.txt".format(id)), history, train_prior)
+    save_train_history(getdirs(os.path.join(res_dir, "train/history_{}".format(id))), model, history)
+    output_train_results(os.path.join(res_dir, "log_{}.txt".format(id)), history, train_prior)
 
     for i, true_prior in enumerate(true_test_priors):
-        testloader, _ = load_testset(dataset_name, batch_size, true_prior)
+        testloader, _ = load_testset(dataset_name, batch_size, true_prior, data_dir)
         acc, auc = prediction(model, testloader, device)
-        output_test_results(os.path.join(home_directory, "log_{}.txt".format(id)), i, true_prior, acc, auc)
-        append_test_results(getdirs(os.path.join(home_directory, "test-{}".format(i))), acc, auc)
+        output_test_results(os.path.join(res_dir, "log_{}.txt".format(id)), i, true_prior, acc, auc)
+        append_test_results(getdirs(os.path.join(res_dir, "test-{}".format(i))), acc, auc)
 
-    output_config(os.path.join(home_directory, "log_{}.txt".format(id)), train_size, val_size, max_epochs, batch_size, lr, alpha, seed)
-
-
+    output_config(os.path.join(res_dir, "log_{}.txt".format(id)), train_size, val_size, max_epochs, batch_size, lr, alpha, seed)
 
 
-def nnPU(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_size, lr, true_test_priors, device_num, path, seed, id):
+
+
+def nnPU(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_size, lr, true_test_priors, device_num, res_dir, data_dir, seed, id):
     device = torch.device(device_num) if device_num >= 0 and torch.cuda.is_available() else 'cpu'
-    home_directory = getdirs(os.path.join(os.getcwd(), "{}/{}/{}".format(path, "nnPU", dataset_name)))
+    res_dir = getdirs(os.path.join(os.getcwd(), "{}/{}/{}".format(res_dir, "nnPU", dataset_name)))
+    data_dir = getdirs(os.path.join(os.getcwd(), data_dir))
     
-    trainloader_P, trainloader_U, valloader_P, valloader_U, trainset_P, trainset_U, _, _ = load_trainset(dataset_name, train_size, val_size, batch_size)
+    trainloader_P, trainloader_U, valloader_P, valloader_U, trainset_P, trainset_U, _, _ = load_trainset(dataset_name, train_size, val_size, batch_size, data_dir)
     
     if alpha is None:
         trans = Tensor_to_1darray()
@@ -119,25 +121,25 @@ def nnPU(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch
         device=device
     )
 
-    save_train_history(getdirs(os.path.join(home_directory, "train/history_{}".format(id))), model, history)
-    output_train_results(os.path.join(home_directory, "log_{}.txt".format(id)), history, train_prior)
+    save_train_history(getdirs(os.path.join(res_dir, "train/history_{}".format(id))), model, history)
+    output_train_results(os.path.join(res_dir, "log_{}.txt".format(id)), history, train_prior)
 
     for i, true_prior in enumerate(true_test_priors):
-        testloader, _ = load_testset(dataset_name, batch_size, true_prior)
+        testloader, _ = load_testset(dataset_name, batch_size, true_prior, data_dir)
         acc, auc = prediction(model, testloader, device)
-        output_test_results(os.path.join(home_directory, "log_{}.txt".format(id)), i, true_prior, acc, auc)
-        append_test_results(getdirs(os.path.join(home_directory, "test-{}".format(i))), acc, auc)
+        output_test_results(os.path.join(res_dir, "log_{}.txt".format(id)), i, true_prior, acc, auc)
+        append_test_results(getdirs(os.path.join(res_dir, "test-{}".format(i))), acc, auc)
 
-    output_config(os.path.join(home_directory, "log_{}.txt".format(id)), train_size, val_size, max_epochs, batch_size, lr, alpha, seed)
-
-
+    output_config(os.path.join(res_dir, "log_{}.txt".format(id)), train_size, val_size, max_epochs, batch_size, lr, alpha, seed)
 
 
-def PUa(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_size, lr, true_test_priors, device_num, path, seed, id):
+
+
+def PUa(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_size, lr, true_test_priors, device_num, res_dir, data_dir, seed, id):
     device = torch.device(device_num) if device_num >= 0 and torch.cuda.is_available() else 'cpu'
-    home_directory = getdirs(os.path.join(os.getcwd(), "{}/{}/{}".format(path, "PUa", dataset_name)))
+    res_dir = getdirs(os.path.join(os.getcwd(), "{}/{}/{}".format(res_dir, "PUa", dataset_name)))
     
-    trainloader_P, trainloader_U, valloader_P, valloader_U, trainset_P, trainset_U, _, _ = load_trainset(dataset_name, train_size, val_size, batch_size)
+    trainloader_P, trainloader_U, valloader_P, valloader_U, trainset_P, trainset_U, _, _ = load_trainset(dataset_name, train_size, val_size, batch_size, data_dir)
     
     if alpha is None:
         trans = Tensor_to_1darray()
@@ -148,7 +150,7 @@ def PUa(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_
         train_prior = alpha
 
     for i, true_prior in enumerate(true_test_priors):
-        testloader, testset = load_testset(dataset_name, batch_size, true_prior)
+        testloader, testset = load_testset(dataset_name, batch_size, true_prior, data_dir)
         unl = np.array([trans(x) for x, t in testset])[:2000]
         test_prior = KM2_estimate(pos, unl)
         model = choose_model(dataset_name)().to(device)
@@ -169,24 +171,24 @@ def PUa(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_
             device=device
         )
 
-        save_train_history(getdirs(os.path.join(home_directory, "train-{}/history_{}".format(i, id))), model, history)
+        save_train_history(getdirs(os.path.join(res_dir, "train-{}/history_{}".format(i, id))), model, history)
         if i == 0:
-            output_train_results(os.path.join(home_directory, "log_{}.txt".format(id)), history, train_prior)
+            output_train_results(os.path.join(res_dir, "log_{}.txt".format(id)), history, train_prior)
 
         acc, auc = prediction(model, testloader, device)
-        output_test_results(os.path.join(home_directory, "log_{}.txt".format(id)), i, true_prior, acc, auc, test_prior)
-        append_test_results(getdirs(os.path.join(home_directory, "test-{}".format(i))), acc, auc, test_prior)
+        output_test_results(os.path.join(res_dir, "log_{}.txt".format(id)), i, true_prior, acc, auc, test_prior)
+        append_test_results(getdirs(os.path.join(res_dir, "test-{}".format(i))), acc, auc, test_prior)
 
-    output_config(os.path.join(home_directory, "log_{}.txt".format(id)), train_size, val_size, max_epochs, batch_size, lr, alpha, seed)
-
-
+    output_config(os.path.join(res_dir, "log_{}.txt".format(id)), train_size, val_size, max_epochs, batch_size, lr, alpha, seed)
 
 
-def DRPU(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_size, lr, true_test_priors, device_num, path, seed, id):
+
+
+def DRPU(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_size, lr, true_test_priors, device_num, res_dir, data_dir, seed, id):
     device = torch.device(device_num) if device_num >= 0 and torch.cuda.is_available() else 'cpu'
-    home_directory = getdirs(os.path.join(os.getcwd(), "{}/{}/{}".format(path, "DRPU", dataset_name)))
+    res_dir = getdirs(os.path.join(os.getcwd(), "{}/{}/{}".format(res_dir, "DRPU", dataset_name)))
     
-    trainloader_P, trainloader_U, valloader_P, valloader_U, _, _, _, _ = load_trainset(dataset_name, train_size, val_size, batch_size)
+    trainloader_P, trainloader_U, valloader_P, valloader_U, _, _, _, _ = load_trainset(dataset_name, train_size, val_size, batch_size, data_dir)
 
     if alpha is None:
         alpha = 0
@@ -210,16 +212,16 @@ def DRPU(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch
 
     train_prior, preds_P = estimate_train_prior(model, valloader_P, valloader_U, device)
 
-    save_train_history(getdirs(os.path.join(home_directory, "train/history_{}".format(id))), model, history)
-    output_train_results(os.path.join(home_directory, "log_{}.txt".format(id)), history, train_prior)
+    save_train_history(getdirs(os.path.join(res_dir, "train/history_{}".format(id))), model, history)
+    output_train_results(os.path.join(res_dir, "log_{}.txt".format(id)), history, train_prior)
 
     for i, true_prior in enumerate(true_test_priors):
-        testloader, _ = load_testset(dataset_name, batch_size, true_prior)
+        testloader, _ = load_testset(dataset_name, batch_size, true_prior, data_dir)
         test_prior = estimate_test_prior(model, testloader, preds_P, device)
         thresh = train_prior * (1 - test_prior) / ((1 - train_prior) * test_prior + train_prior * (1 - test_prior))
         thresh /= train_prior
         acc, auc = prediction(model, testloader, device, thresh)
-        output_test_results(os.path.join(home_directory, "log_{}.txt".format(id)), i, true_prior, acc, auc, test_prior, thresh)
-        append_test_results(getdirs(os.path.join(home_directory, "test-{}".format(i))), acc, auc, test_prior, thresh)
+        output_test_results(os.path.join(res_dir, "log_{}.txt".format(id)), i, true_prior, acc, auc, test_prior, thresh)
+        append_test_results(getdirs(os.path.join(res_dir, "test-{}".format(i))), acc, auc, test_prior, thresh)
 
-    output_config(os.path.join(home_directory, "log_{}.txt".format(id)), train_size, val_size, max_epochs, batch_size, lr, alpha, seed)
+    output_config(os.path.join(res_dir, "log_{}.txt".format(id)), train_size, val_size, max_epochs, batch_size, lr, alpha, seed)
