@@ -19,7 +19,7 @@ def priorestimator(y, t):
     num_P = np.count_nonzero(t == 1)
     delta = 1 / num_P
     eps = np.sqrt(4 * np.log(np.exp(1) * num_P / 2) / num_P) + np.sqrt(np.log(2 / delta) / (2 * num_P))
-    fpr, tpr, thresh = roc_curve(t, y)
+    fpr, tpr, thresh = roc_curve(t, y, drop_intermediate=False)
     idx = tpr > eps
     ratio = fpr[idx] / tpr[idx]
     ratio = ratio[~(np.isnan(ratio) + np.isinf(ratio))]
@@ -27,8 +27,9 @@ def priorestimator(y, t):
     return np.min(ratio)
 
 
-def ERM(model, optimizer, trainloader_P, trainloader_U, valloader_P, valloader_U, criterion, criterion_val, max_epochs, device):
-    results = Results(["train_loss", "validation_loss"])
+def ERM(model, optimizer, trainloader_P, trainloader_U, valloader_P, valloader_U, testloaders, criterion, criterion_val, max_epochs, device, given_thresholds=None):
+    train_result = Results(["train_loss", "validation_loss"])
+    test_results = [Results(["accuracy", "auc", "prior", "thresh"]) for i in range(len(testloaders))] if given_thresholds is None else [Results(["accuracy", "auc"]) for i in range(len(testloaders))]
     for ep in range(max_epochs):
         # train step
         model.train()
@@ -42,7 +43,7 @@ def ERM(model, optimizer, trainloader_P, trainloader_U, valloader_P, valloader_U
             loss.backward()
             optimizer.step()
             train_loss.append(criterion.value())
-        results.append("train_loss", np.array(train_loss).mean())
+        train_result.append("train_loss", np.array(train_loss).mean())
 
         # validation step
         model.eval()
@@ -55,14 +56,30 @@ def ERM(model, optimizer, trainloader_P, trainloader_U, valloader_P, valloader_U
                 y_p, y_u = y[:num_P], y[num_P:]
                 criterion_val(y_p, y_u)
                 validation_loss.append(criterion_val.value())
-            results.append("validation_loss", np.array(validation_loss).mean())
+            train_result.append("validation_loss", np.array(validation_loss).mean())
+
+        # test step
+        with torch.no_grad():
+            for i, testloader in enumerate(testloaders):
+                if given_thresholds is None:
+                    train_prior, preds_P = estimate_train_prior(model, valloader_P, valloader_U, device)
+                    test_prior = estimate_test_prior(model, testloader, preds_P, device)
+                    thresh = train_prior * (1 - test_prior) / ((1 - train_prior) * test_prior + train_prior * (1 - test_prior))
+                    thresh /= train_prior
+                    test_results[i].append("prior", test_prior)
+                    test_results[i].append("thresh", thresh)
+                else:
+                    thresh = given_thresholds[i]
+                acc, auc = prediction(model, testloader, device, thresh)
+                test_results[i].append("accuracy", acc)
+                test_results[i].append("auc", auc)
 
         if ep % 20 == 19:
             optimizer.param_groups[0]['lr'] /= 2
 
-        print("Epoch {}, Train loss : {:.4f}, Val loss : {:.4f}".format(ep, results.get("train_loss"), results.get("validation_loss")))
+        print("Epoch {}, Train loss : {:.4f}, Val loss : {:.4f}".format(ep, train_result.get("train_loss"), train_result.get("validation_loss")))
     
-    return model, results
+    return model, train_result, test_results
 
 
 def estimate_train_prior(model, valloader_P, valloader_U, device):

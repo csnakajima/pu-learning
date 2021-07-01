@@ -21,8 +21,8 @@ def process_args(arguments):
                         help="Loss function name")
     parser.add_argument("--alpha", "-a", type=float, default=None,
                         help="Parameter for risk estimator")
-    parser.add_argument("--preset", "-p", type=bool, default=False,
-                        help="Use preset of parameter settings if True")
+    parser.add_argument("--preset", "-p", action="store_true",
+                        help="Use preset of parameter settings")
     parser.add_argument("--max_epochs",  type=int, default=100,
                         help="Number of epochs")
     parser.add_argument("--batch_size", type=int, default=500,
@@ -101,7 +101,7 @@ def main(args):
     
     else:
         true_test_priors = [0.2, 0.4, 0.6, 0.8]
-        loss_name = args.loss
+        loss_name = "LSIF" if args.method == "DRPU" else "sigmoid"
         if args.dataset == "mnist":
             ImageDataset.pos_labels = [0, 2, 4, 6, 8]
             train_size = (2500, 50000)
@@ -141,7 +141,7 @@ def main(args):
             batch_size = args.batch_size
             lr = args.lr
             alpha = args.alpha
-            loss_name = "LSIF" if args.method == "DRPU" else "sigmoid"
+            loss_name = args.loss
 
         if args.method == "uPU":
             from run_benchmark import uPU as run

@@ -25,13 +25,16 @@ class Results(object):
     def stdev(self, key):
         return np.array(self.map[key]).std()
 
-    def save(self, key, path):
-        np.savetxt(path + "/{}.csv".format(key), np.array(self.map[key]), encoding="utf-8")
+    def save(self, key, path, index=None):
+        if index is None:
+            np.savetxt(os.path.join(path, "{}.csv".format(key)), np.array(self.map[key]), encoding="utf-8")
+        else:
+            np.savetxt(os.path.join(path, "{}-{}.csv".format(key, index)), np.array(self.map[key]), encoding="utf-8")
 
-    def saveall(self, path):
+    def saveall(self, path, index=None):
         for key in self.map.keys():
             if len(self.map[key]) > 0:
-                self.save(key, path)
+                self.save(key, path, index)
 
     def plot(self, keys, path, xlabel='Epoch', ylabel='Loss', marker=None):
         # plt.style.use(['seaborn-colorblind'])
@@ -52,13 +55,18 @@ class Results(object):
 
 
 def save_model(model, path):
-    torch.save(model.state_dict(), path + "/checkpoint.pth.tar")
+    torch.save(model.state_dict(), os.path.join(path, "checkpoint.pth.tar"))
 
 
 def save_train_history(path, model, history):
     history.saveall(path)
     history.plotall(path)
     save_model(model, path)
+
+
+def save_test_history(path, histories):
+    for i, history in enumerate(histories):
+        history.saveall(path, i)
 
 
 def output_train_results(path, history, prior):
@@ -118,14 +126,3 @@ def output_config(path, train_size, val_size, max_epochs, batch_size, lr, alpha,
 def getdirs(dir_path):
     os.makedirs(dir_path, exist_ok=True)
     return dir_path
-
-
-def plot_roc_curve(fpr, tpr, path="results/roc_curve.png"):
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.set_xlabel("False Positive Rate")
-    ax.set_ylabel("True Positive Rate")
-    ax.grid()
-    ax.plot(fpr, tpr)
-    plt.title("ROC Curve")
-    fig.savefig(path)
