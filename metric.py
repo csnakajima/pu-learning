@@ -107,3 +107,4 @@ def choose_loss(loss_name):
         "LSIF": (lambda x: torch.square(x - 1) / 2, lambda x: x - 1)
     }
     return losses[loss_name]
+

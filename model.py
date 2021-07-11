@@ -149,3 +149,4 @@ def choose_model(model_name):
         "cifar": ConvPoolNet
     }
     return models[model_name]
+

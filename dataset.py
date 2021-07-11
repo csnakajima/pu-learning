@@ -208,3 +208,4 @@ def get_synthetic_test(dataset_name, num, prior):
     transform = ndarray_to_Tensor()
     target_transform = None
     return choose_synthetic_dataset(dataset_name)(num, prior, transform=transform, target_transform=target_transform)
+

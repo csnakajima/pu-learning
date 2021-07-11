@@ -8,7 +8,7 @@ from model import choose_model
 from metric import *
 from save import *
 from algorithm import *
-from Kernel_MPE import KM2_estimate
+from modules.Kernel_MPE import KM2_estimate
 
 
 def random_split(train_size, val_size):
@@ -41,14 +41,16 @@ def load_testset(dataset_name, batch_size, prior=None, data_dir="dataset"):
 
 
 
-def uPU(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_size, lr, true_test_priors, device_num, res_dir, data_dir, seed, id):
+def uPU(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_size, lr, true_train_prior, true_test_priors, device_num, res_dir, data_dir, seed, id):
     device = torch.device(device_num) if device_num >= 0 and torch.cuda.is_available() else 'cpu'
     res_dir = getdirs(os.path.join(os.getcwd(), res_dir, "uPU", dataset_name))
     data_dir = getdirs(os.path.join(os.getcwd(), data_dir))
     
     trainloader_P, trainloader_U, valloader_P, valloader_U, trainset_P, trainset_U, _, _ = load_trainset(dataset_name, train_size, val_size, batch_size, data_dir)
     
-    if alpha is None:
+    if true_train_prior is not None:
+        train_prior = true_train_prior
+    elif alpha is None:
         trans = Tensor_to_1darray()
         pos = np.array([trans(x) for x, t in trainset_P])[:2000]
         unl = np.array([trans(x) for x, t in trainset_U])[:2000]
@@ -93,14 +95,16 @@ def uPU(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_
 
 
 
-def nnPU(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_size, lr, true_test_priors, device_num, res_dir, data_dir, seed, id):
+def nnPU(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_size, lr, true_train_prior, true_test_priors, device_num, res_dir, data_dir, seed, id):
     device = torch.device(device_num) if device_num >= 0 and torch.cuda.is_available() else 'cpu'
     res_dir = getdirs(os.path.join(os.getcwd(), res_dir, "nnPU", dataset_name))
     data_dir = getdirs(os.path.join(os.getcwd(), data_dir))
     
     trainloader_P, trainloader_U, valloader_P, valloader_U, trainset_P, trainset_U, _, _ = load_trainset(dataset_name, train_size, val_size, batch_size, data_dir)
     
-    if alpha is None:
+    if true_train_prior is not None:
+        train_prior = true_train_prior
+    elif alpha is None:
         trans = Tensor_to_1darray()
         pos = np.array([trans(x) for x, t in trainset_P])[:2000]
         unl = np.array([trans(x) for x, t in trainset_U])[:2000]
@@ -145,14 +149,16 @@ def nnPU(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch
 
 
 
-def PUa(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_size, lr, true_test_priors, device_num, res_dir, data_dir, seed, id):
+def PUa(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_size, lr, true_train_prior, true_test_priors, device_num, res_dir, data_dir, seed, id):
     device = torch.device(device_num) if device_num >= 0 and torch.cuda.is_available() else 'cpu'
     res_dir = getdirs(os.path.join(os.getcwd(), res_dir, "PUa", dataset_name))
     data_dir = getdirs(os.path.join(os.getcwd(), data_dir))
     
     trainloader_P, trainloader_U, valloader_P, valloader_U, trainset_P, trainset_U, _, _ = load_trainset(dataset_name, train_size, val_size, batch_size, data_dir)
     
-    if alpha is None:
+    if true_train_prior is not None:
+        train_prior = true_train_prior
+    elif alpha is None:
         trans = Tensor_to_1darray()
         pos = np.array([trans(x) for x, t in trainset_P])[:2000]
         unl = np.array([trans(x) for x, t in trainset_U])[:2000]
@@ -200,14 +206,16 @@ def PUa(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_
 
 
 
-def DRPU(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_size, lr, true_test_priors, device_num, res_dir, data_dir, seed, id):
+def DRPU(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch_size, lr, true_train_prior, true_test_priors, device_num, res_dir, data_dir, seed, id):
     device = torch.device(device_num) if device_num >= 0 and torch.cuda.is_available() else 'cpu'
     res_dir = getdirs(os.path.join(os.getcwd(), res_dir, "DRPU", dataset_name))
     data_dir = getdirs(os.path.join(os.getcwd(), data_dir))
     
     trainloader_P, trainloader_U, valloader_P, valloader_U, _, _, _, _ = load_trainset(dataset_name, train_size, val_size, batch_size, data_dir)
 
-    if alpha is None:
+    if true_train_prior is not None:
+        alpha = true_train_prior
+    elif alpha is None:
         alpha = 0
 
     testloaders = [load_testset(dataset_name, batch_size, true_prior, data_dir)[0] for true_prior in true_test_priors]
@@ -216,6 +224,13 @@ def DRPU(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch
     optimizer = torch.optim.Adam(params=model.parameters(), lr=lr, weight_decay=0.005, betas=(0.9, 0.999))
     criterion = NonNegativeBregmanDivergence(alpha, choose_loss(loss_name))
     criterion_val = BregmanDivergence(choose_loss(loss_name))
+
+    if true_train_prior is None:
+        given_thresholds = None
+    else:
+        train_prior = true_train_prior
+        given_thresholds = [train_prior * (1 - test_prior) / (train_prior * ((1 - train_prior) * test_prior + train_prior * (1 - test_prior)) + EPS)
+                            for test_prior in true_test_priors]
 
     model, train_result, test_results = ERM(
         model=model,
@@ -229,7 +244,7 @@ def DRPU(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch
         criterion_val=criterion_val,
         max_epochs=max_epochs,
         device=device,
-        given_thresholds=None
+        given_thresholds=given_thresholds
     )
 
     train_prior, preds_P = estimate_train_prior(model, valloader_P, valloader_U, device)
@@ -247,3 +262,4 @@ def DRPU(dataset_name, train_size, val_size, alpha, loss_name, max_epochs, batch
         append_test_results(getdirs(os.path.join(res_dir, "test-{}".format(i))), acc, auc, prior, thresh)
 
     output_config(os.path.join(res_dir, "log_{}.txt".format(id)), train_size, val_size, max_epochs, batch_size, lr, alpha, seed)
+

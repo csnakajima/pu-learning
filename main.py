@@ -11,7 +11,7 @@ def process_args(arguments):
         description="PyTorch implementation of unbiased/non-negative/density-ratio PU learning.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("--method", "-m", type=str, default="nnDRPU", choices=["uPU", "nnPU", "PUa", "DRPU"],
+    parser.add_argument("--method", "-m", type=str, default="DRPU", choices=["uPU", "nnPU", "PUa", "DRPU"],
                         help="Learning algorithm")
     parser.add_argument("--dataset", "-d", type=str, default="mnist", choices=["gauss", "gauss_mix", "mnist", "fmnist", "kmnist", "cifar"],
                         help="Dataset name")
@@ -29,6 +29,8 @@ def process_args(arguments):
                         help="Batch size")
     parser.add_argument("--lr", type=float, default=2e-5,
                         help="Learning rate")
+    parser.add_argument("--oracle_prior", action="store_true",
+                        help="Use oracle class-priors (for benchmark data)")
     parser.add_argument("--gpu", type=int, default=0,
                         help="GPU ID (negative value indicates CPU)")
     parser.add_argument("--res_dir", type=str, default="results",
@@ -104,6 +106,7 @@ def main(args):
         loss_name = "LSIF" if args.method == "DRPU" else "sigmoid"
         if args.dataset == "mnist":
             ImageDataset.pos_labels = [0, 2, 4, 6, 8]
+            true_train_prior = 0.5 if args.oracle_prior else None
             train_size = (2500, 50000)
             val_size = (500, 10000)
             max_epochs = 50
@@ -112,6 +115,7 @@ def main(args):
             alpha = 0.475 if args.method == "DRPU" else None
         elif args.dataset == "fmnist":
             ImageDataset.pos_labels = [2, 3, 4, 5, 6, 9]
+            true_train_prior = 0.6 if args.oracle_prior else None
             train_size = (2500, 50000)
             val_size = (500, 10000)
             max_epochs = 100
@@ -120,6 +124,7 @@ def main(args):
             alpha = 0.6 if args.method == "DRPU" else None
         elif args.dataset == "kmnist":
             ImageDataset.pos_labels = [0, 1, 8, 9]
+            true_train_prior = 0.4 if args.oracle_prior else None
             train_size = (2500, 50000)
             val_size = (500, 10000)
             max_epochs = 100
@@ -128,6 +133,7 @@ def main(args):
             alpha = 0.375 if args.method == "DRPU" else None
         else:
             ImageDataset.pos_labels = [0, 1, 8, 9]
+            true_train_prior = 0.4 if args.oracle_prior else None
             train_size = (2500, 45000)
             val_size = (500, 5000)
             max_epochs = 100
@@ -161,6 +167,7 @@ def main(args):
             max_epochs=max_epochs,
             batch_size=batch_size,
             lr=lr,
+            true_train_prior=true_train_prior,
             true_test_priors=true_test_priors,
             device_num=args.gpu,
             res_dir=args.res_dir,
@@ -172,3 +179,4 @@ def main(args):
 
 if __name__ == '__main__':
     main(sys.argv[1:])
+

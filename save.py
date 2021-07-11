@@ -75,7 +75,7 @@ def output_train_results(path, history, prior):
         print("--Training result--\n", file=f)
         print("Train loss : {:.9f}".format(train_loss), file=f)
         print("Validation loss : {:.9f}".format(validation_loss), file=f)
-        print("Prior : {:.6f}".format(prior), file=f)
+        print("Training Prior : {:.6f}".format(prior), file=f)
         print("", file=f)
 
 
@@ -126,3 +126,4 @@ def output_config(path, train_size, val_size, max_epochs, batch_size, lr, alpha,
 def getdirs(dir_path):
     os.makedirs(dir_path, exist_ok=True)
     return dir_path
+

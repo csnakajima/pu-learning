@@ -5,6 +5,7 @@ from metric import Accuracy, AUROC
 from save import Results
 from sklearn.metrics import roc_auc_score, roc_curve
 
+EPS = 1e-16
 
 def to_ndarray(tensor):
     return tensor.to('cpu').detach().numpy().copy()
@@ -64,8 +65,7 @@ def ERM(model, optimizer, trainloader_P, trainloader_U, valloader_P, valloader_U
                 if given_thresholds is None:
                     train_prior, preds_P = estimate_train_prior(model, valloader_P, valloader_U, device)
                     test_prior = estimate_test_prior(model, testloader, preds_P, device)
-                    thresh = train_prior * (1 - test_prior) / ((1 - train_prior) * test_prior + train_prior * (1 - test_prior))
-                    thresh /= train_prior
+                    thresh = train_prior * (1 - test_prior) / (train_prior * ((1 - train_prior) * test_prior + train_prior * (1 - test_prior)) + EPS)
                     test_results[i].append("prior", test_prior)
                     test_results[i].append("thresh", thresh)
                 else:
@@ -141,3 +141,4 @@ def find_boundary(model, min_max, device, thresh=0):
         if i > 0 and y[i - 1] - thresh < 0 and y[i] - thresh >= 0:
             return x[i]
     return x[0] if x[0] - thresh > 0 else x[-1]
+

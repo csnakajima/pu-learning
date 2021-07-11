@@ -1,4 +1,4 @@
-# downloaded from http://web.eecs.umich.edu/~cscott/code.html#kmpe
+# downloaded from http://web.eecs.umich.edu/~cscott/code.html
 
 # -*- coding: utf-8 -*-
 """
@@ -182,3 +182,4 @@ def KM2_estimate(pos, unl):
         unl = pca.transform(unl)
     KM1, KM2 = wrapper(unl.astype(np.float64), pos.astype(np.float64))
     return KM2
+

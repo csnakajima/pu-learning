@@ -10,7 +10,7 @@ from model import choose_model
 from metric import *
 from save import *
 from algorithm import *
-from Kernel_MPE import KM2_estimate
+from modules.Kernel_MPE import KM2_estimate
 
 
 def load_trainset(dataset_name, train_size, val_size, batch_size, prior):
@@ -99,9 +99,6 @@ def DRPU(dataset_name, train_size, val_size, test_size, alpha, loss_name, max_ep
     
     trainloader_P, trainloader_U, valloader_P, valloader_U, _, trainset_U, _, _ = load_trainset(dataset_name, train_size, val_size, batch_size, true_train_prior)
 
-    if alpha is None:
-        alpha = 0
-
     testloaders, testsets = [], []
     for true_prior in true_test_priors:
         testloader, testset = load_testset(dataset_name, test_size, batch_size, true_prior)
@@ -146,3 +143,4 @@ def DRPU(dataset_name, train_size, val_size, test_size, alpha, loss_name, max_ep
         append_test_results(getdirs(os.path.join(res_dir, "test-{}".format(i))), acc, auc, test_prior, boundary=boundary)
 
     output_config(os.path.join(res_dir, "log_{}.txt".format(id)), train_size, val_size, max_epochs, batch_size, lr, alpha, seed)
+
