@@ -41,6 +41,7 @@ def ERM(model, optimizer, trainloader_P, trainloader_U, valloader_P, valloader_U
             y = model(x).view(-1)
             y_p, y_u = y[:num_P], y[num_P:]
             loss = criterion(y_p, y_u)
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             train_loss.append(criterion.value())
