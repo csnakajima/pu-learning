@@ -60,7 +60,17 @@ def save_model(model, path):
 
 def save_train_history(path, model, history):
     history.saveall(path)
-    history.plotall(path)
+    history.plot(
+        ["train_loss", "validation_loss"],
+        os.path.join(path, "loss.png"),
+        xlabel="Epoch", ylabel="Loss"
+    )
+    if not history.empty("val_pu_auc"):
+        history.plot(
+            ["val_pu_auc"],
+            os.path.join(path, "val_pu_auc.png"),
+            xlabel="Epoch", ylabel="AUC"
+        )
     save_model(model, path)
 
 

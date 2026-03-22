@@ -29,7 +29,7 @@ def priorestimator(y, t):
 
 
 def ERM(model, optimizer, trainloader_P, trainloader_U, valloader_P, valloader_U, testloaders, criterion, criterion_val, max_epochs, device, given_thresholds=None):
-    train_result = Results(["train_loss", "validation_loss"])
+    train_result = Results(["train_loss", "validation_loss", "val_pu_auc"])
     test_results = [Results(["accuracy", "auc", "prior", "thresh"]) for i in range(len(testloaders))] if given_thresholds is None else [Results(["accuracy", "auc"]) for i in range(len(testloaders))]
     for ep in range(max_epochs):
         # train step
@@ -51,6 +51,7 @@ def ERM(model, optimizer, trainloader_P, trainloader_U, valloader_P, valloader_U
         model.eval()
         with torch.no_grad():
             validation_loss = []
+            val_preds_P, val_preds_U = [], []
             for (x_p, t_p), (x_u, t_u) in zip(valloader_P, valloader_U):
                 num_P, num_U = len(x_p), len(x_u)
                 x = torch.cat([x_p, x_u]).to(device)
@@ -58,7 +59,17 @@ def ERM(model, optimizer, trainloader_P, trainloader_U, valloader_P, valloader_U
                 y_p, y_u = y[:num_P], y[num_P:]
                 criterion_val(y_p, y_u)
                 validation_loss.append(criterion_val.value())
+                val_preds_P.append(to_ndarray(y_p))
+                val_preds_U.append(to_ndarray(y_u))
             train_result.append("validation_loss", np.array(validation_loss).mean())
+            all_scores = np.concatenate(val_preds_P + val_preds_U)
+            all_labels = np.array([1] * sum(len(p) for p in val_preds_P)
+                                + [0] * sum(len(u) for u in val_preds_U))
+            try:
+                pu_auc = roc_auc_score(all_labels, all_scores)
+            except ValueError:
+                pu_auc = 0.5
+            train_result.append("val_pu_auc", pu_auc)
 
         # test step
         with torch.no_grad():
