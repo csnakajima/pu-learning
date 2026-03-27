@@ -20,9 +20,10 @@ def load_trainset(dataset_name, train_size, val_size, batch_size, prior):
     valset_P = get_synthetic_positive(dataset_name, valsize_P)
     valset_U = get_synthetic_unlabeled(dataset_name, valsize_U, prior)
     batch_num = len(trainset_U) // batch_size
+    val_batch_num = max(1, len(valset_U) // batch_size)
     trainloader_P = torch.utils.data.DataLoader(trainset_P, batch_size=len(trainset_P)//batch_num, shuffle=True, drop_last=True, num_workers=2)
     trainloader_U = torch.utils.data.DataLoader(trainset_U, batch_size=batch_size, shuffle=True, drop_last=True, num_workers=2)
-    valloader_P = torch.utils.data.DataLoader(valset_P, batch_size=len(valset_P)//batch_num, shuffle=False, drop_last=False, num_workers=1)
+    valloader_P = torch.utils.data.DataLoader(valset_P, batch_size=max(1, len(valset_P)//val_batch_num), shuffle=False, drop_last=False, num_workers=1)
     valloader_U = torch.utils.data.DataLoader(valset_U, batch_size=batch_size, shuffle=False, drop_last=False, num_workers=1)
     return trainloader_P, trainloader_U, valloader_P, valloader_U, trainset_P, trainset_U, valset_P, valset_U
 
